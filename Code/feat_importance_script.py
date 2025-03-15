@@ -1,122 +1,8 @@
 #%%
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
-#%%
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_rows', None)
-# %%
-df = pd.read_csv("../Data/imputed_full_matrix_at_centroid.csv")
-# %%
-df.info()
-#%%
-# List of African country codes (based on UN country codes)
-african_countries = [
-    "DZA", "AGO", "BEN", "BWA", "BFA", "BDI", "CMR", "CPV", "CAF", "TCD", "COM",
-    "COD", "DJI", "EGY", "GNQ", "ERI", "ETH", "GAB", "GMB", "GHA", "GIN", "GNB",
-    "CIV", "KEN", "LSO", "LBR", "LBY", "MDG", "MWI", "MLI", "MRT", "MUS", "MYT",
-    "MOZ", "NAM", "NER", "NGA", "REU", "RWA", "SHN", "STP", "SEN", "SYC", "SLE",
-    "SOM", "ZAF", "SSD", "SDN", "SWZ", "TZA", "TGO", "TUN", "UGA", "ESH", "ZMB", "ZWE"
-]
-
-# Filter rows where origin_ISO is an African country
-df_africa = df[df['origin_ISO'].isin(african_countries)]
-
-# Display the first few rows
-print(df_africa.head())
-
-#%%
-df_africa['ship_type'].value_counts()
-# %%
-df["Unit logistics costs ($/ton)"].hist(bins=5)
-plt.show()
-# %%
-df.isna().sum()
-#%%
-df['origin_ISO'].value_counts()
-#%%
-print(df_africa.groupby("Mode_name")["Unit logistics costs ($/ton)"].mean())
-
-#%%
-df_africa["Mode_name"].value_counts().plot(kind='bar')
-#%%
-# sns.heatmap(df.isnull(), cbar=False)
-print(df.groupby("ship_type")["Unit logistics costs ($/ton)"].mean())
-#%%
-#calculating total cost for each row
-
-df_africa['Total_cost'] = np.where(
-    df_africa['flow(tonne)'] == 0,
-    df_africa['Unit logistics costs ($/ton)'],
-    df_africa['Unit logistics costs ($/ton)'] * df_africa['flow(tonne)']
-)
-#%%
-df_africa.head()
-#%%
-df_africa['Unit logistics cost ($/km)'] = df_africa['Total_cost'] / df_africa['distance(km)']
-df_africa['Unit logistics cost ($/km)'].describe()
-#%%
-'''Trade Flow Analysis'''
-#routes having highest trade volume
-trade_flow = df_africa.groupby(["origin_ISO", "destination_ISO"])["flow(tonne)"].sum().sort_values(ascending=False).head(10)
-print(trade_flow)
-#%%
-# %%
-print(len(df[df["flow(tonne)" == "0"]]))
-# %%
-df.groupby('Mode_name')['flow(tonne)'].describe()
-#%%
-df.groupby('ship_type')['Unit logistics costs ($/ton)'].describe()
-
-# %%
-numeric_cols = ['flow(tonne)', 'distance(km)', 'Unit logistics costs ($/ton)']
-
-# %%
-corr_matrix = df[numeric_cols].corr()
-sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
-plt.show()
-# %%
-plt.figure(figsize=(16,10))
-sns.histplot(df['Unit logistics costs ($/ton)'], kde=True,bins=10, color='blue')
-plt.show()
-# %%
-
-#%%
-mode_counts = df['Mode_name'].value_counts()
-plt.bar(mode_counts.index,mode_counts.values)
-plt.title('Ship Mode counts')
-plt.show()
-# %%
-mode_by_distance = df.groupby('Mode_name')['distance(km)'].sum().sort_values(ascending=False)
-# %%
-mode_by_distance
-# %%
-plt.bar(mode_by_distance.index,mode_by_distance.values, alpha=0.7,)
-plt.xlabel("Mode Name")
-plt.ylabel("Total Distance (km)")
-plt.title("Total Distance Traveled by Transport Mode")
-plt.show()
-# %%
-mode_by_cost = df.groupby('Mode_name')['Unit logistics costs ($/ton)'].sum().sort_values(ascending=False)
-mode_by_cost
-# %%
-plt.bar(mode_by_cost.index,mode_by_cost.values, alpha=0.7,)
-plt.xlabel("Mode Name")
-plt.ylabel("Unit logistics costs ($/ton)")
-plt.title("unit logistics costs by Transport Mode")
-plt.show()
-# %%
-mode_by_weight = df.groupby('Mode_name')['flow(tonne)'].sum().sort_values(ascending=False)
-mode_by_weight
-
-plt.bar(mode_by_weight.index,mode_by_weight.values, alpha=0.7,)
-plt.xlabel("Mode Name")
-plt.ylabel("Flow (tonne)")
-plt.title("Flow (tonne) by Transport Mode")
-plt.show()
-# %%
-'''predictive modelling'''
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -125,89 +11,149 @@ from sklearn.metrics import accuracy_score,  classification_report
 from xgboost import XGBClassifier
 import shap
 import xgboost as xgb
-#%%
-df_africa_model = df_africa.copy()
+from category_encoders import TargetEncoder
+import pickle
+# %%
+df = pd.read_csv("imputed_full_matrix_at_centroid.csv")
+df.head()
+# %%
+# Convert relevant columns to numeric
+numeric_cols = ['flow(tonne)', 'distance(km)', 'Unit logistics costs ($/ton)', 'Model']
+df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+
+# %%
+plt.figure(figsize=(12, 6))
+sns.boxplot(data=df, x='Mode_name', y='Unit logistics costs ($/ton)')
+plt.xticks(rotation=45)
+plt.title('Mode-Specific Transport Costs')
+plt.ylabel('Unit Logistics Costs ($/ton)')
+plt.xlabel('Transport Mode')
+plt.show()
+# %%
+african_countries = [
+    "DZA", "AGO", "BEN", "BWA", "BFA", "BDI", "CMR", "CPV", "CAF", "TCD", "COM",
+    "COD", "DJI", "EGY", "GNQ", "ERI", "ETH", "GAB", "GMB", "GHA", "GIN", "GNB",
+    "CIV", "KEN", "LSO", "LBR", "LBY", "MDG", "MWI", "MLI", "MRT", "MUS", "MYT",
+    "MOZ", "NAM", "NER", "NGA", "REU", "RWA", "SHN", "STP", "SEN", "SYC", "SLE",
+    "SOM", "ZAF", "SSD", "SDN", "SWZ", "TZA", "TGO", "TUN", "UGA", "ESH", "ZMB", "ZWE"
+]
+
+print(len(african_countries))
 
 #%%
-df_africa['year'] = df_africa['year'].astype('category')
+'''considering only export data'''
+df_africa = df[df['origin_ISO'].isin(african_countries)]
+df_africa.shape
 
-#%%
-df_africa['year'].value_counts()        #so only 2020 data available
-#%%
-numerical_cols = df_africa.select_dtypes(include=['number'])
-numerical_cols.info()
-#%%
-categorical_cols = df_africa.select_dtypes(exclude=['number'])
-categorical_cols.info()
-#%%
 
+# %%
+#understanding the Model field
+df.groupby('Model')['Unit logistics costs ($/ton)'].describe()
+# %%
+df.groupby(['IFM_HS','commodity_index']).nunique()
+# %%
+df.groupby(['IFM_HS','commodity_index'])['Model'].nunique()
+# %%
+grouped_model = df.groupby(['IFM_HS','commodity_index'])['Model']
+#%%
+print(grouped_model.head())
+# %%
+df[["commodity_index", "Model"]].drop_duplicates().sort_values("commodity_index")
+
+# %%
+df.groupby('commodity_index')['Model'].nunique()
+# %%
+df['ship_type'].head()
+# %%
+df['ship_type'].value_counts()
+# %%
+df['container_type'].value_counts()
+# %%
+df['Mode_name'].unique()
+# %%
+df[df.Mode_name == 'Sea']['ship_type'].head(10)
+# %%
+df[df.Mode_name == 'Rail']['ship_type'].head(10)
+# %%
+df.ship_type.unique()
+# %%
+df.container_type.unique()
+# %%
+cols = df.dtypes
+cols
+# for row in 
+# %%
+for col in df.columns:
+    if df[col].dtype == 'object':
+        print(f"Unique values of {col} are {df[col].unique()}")
+# %%
+print(df_africa.select_dtypes(include='object').columns)
+# %%
+print(df_africa.select_dtypes(include='number').columns)
+# %%
 # df_africa_model['origin_ISO']
 X = df_africa[['origin_ISO', 'destination_ISO', 'distance(km)','flow(tonne)',
-            #    'Unit logistics costs ($/ton)',
-               'commodity_index',
+            #    'commodity_index',
                'ship_type',
-               'IFM_HS']]
+               'IFM_HS'
+               ]].copy()
 y = df_africa['mode']
-
+# Concatenate origin & destination
+X['origin_destination'] = X['origin_ISO'].astype(str) + "_" + X['destination_ISO'].astype(str)
 #%%
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 #%%
-le = LabelEncoder()
-X_train['origin_ISO_encoded'] = le.fit_transform(X_train['origin_ISO'])
-X_test['origin_ISO_encoded'] = le.transform(X_test['origin_ISO'])
+# Define encoders
+iso_encoder = TargetEncoder()
+ship_type_encoder = TargetEncoder()
+IFM_HS_encoder = TargetEncoder()
 
-le2 = LabelEncoder()
-X_train['destination_ISO_encoded'] = le2.fit_transform(X_train['destination_ISO'])
-X_test['destination_ISO_encoded'] = le2.transform(X_test['destination_ISO'])
+# Perform Target Encoding using temporary variables
+X_train['origin_destination_encoded'] = iso_encoder.fit_transform(X_train[['origin_destination']], y_train)
+X_test['origin_destination_encoded'] = iso_encoder.transform(X_test[['origin_destination']]) 
+
+X_train['ship_type_encoded'] = ship_type_encoder.fit_transform(X_train[['ship_type']], y_train) 
+X_test['ship_type_encoded'] = ship_type_encoder.transform(X_test[['ship_type']])
+
+X_train['IHM_HS_encoded'] = IFM_HS_encoder.fit_transform(X_train[['IFM_HS']], y_train) 
+X_test['IHM_HS_encoded'] = IFM_HS_encoder.transform(X_test[['IFM_HS']])
+# %%
+# Drop original categorical columns
+X_train.drop(columns=['origin_ISO', 'destination_ISO', 'origin_destination', 'ship_type', 'IFM_HS'], inplace=True)
+X_test.drop(columns=['origin_ISO', 'destination_ISO', 'origin_destination', 'ship_type','IFM_HS'], inplace=True)
+
 
 #%%
-le_commodity = LabelEncoder()
-le_ship_type = LabelEncoder()
-le_ifm_hs = LabelEncoder()
+from sklearn.model_selection import RandomizedSearchCV
+# Define the parameter grid
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [6, 10, 15],
+    'learning_rate': [0.01, 0.05, 0.1, 0.2],
+    'subsample': [0.7, 0.8, 0.9, 1.0],
+    'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
+    'gamma': [0, 0.1, 0.2, 0.3],
+    'min_child_weight': [1, 3, 5]
+}
 
-# Encode 'commodity_index'
-X_train['commodity_index_encoded'] = le_commodity.fit_transform(X_train['commodity_index'])
-X_test['commodity_index_encoded'] = le_commodity.transform(X_test['commodity_index'])  # Only transform
+# Initialize model
+xgb_model = XGBClassifier(eval_metric='logloss')
 
-# Encode 'ship_type'
-X_train['ship_type_encoded'] = le_ship_type.fit_transform(X_train['ship_type'])
-X_test['ship_type_encoded'] = le_ship_type.transform(X_test['ship_type'])  # Only transform
+# RandomizedSearchCV
+random_search = RandomizedSearchCV(xgb_model, param_grid, n_iter=10, cv=3, scoring='f1_weighted', verbose=2, n_jobs=-1)
+random_search.fit(X_train, y_train)
 
-# Encode 'IFM_HS'
-X_train['IFM_HS_encoded'] = le_ifm_hs.fit_transform(X_train['IFM_HS'])
-X_test['IFM_HS_encoded'] = le_ifm_hs.transform(X_test['IFM_HS'])  # Only transform
+# Best model
+best_xgb = random_search.best_estimator_
+print("Best Parameters:", random_search.best_params_)
 
-#%%
-X_train.drop(['origin_ISO', 'destination_ISO', 'commodity_index', 'ship_type', 'IFM_HS'], axis=1, inplace=True)
-X_test.drop(['origin_ISO', 'destination_ISO', 'commodity_index', 'ship_type', 'IFM_HS'], axis=1, inplace=True)
-# %%
-clf_rf = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42)
-clf_rf.fit(X_train, y_train)
-# %%
-y_pred = clf_rf.predict(X_test)
+# Evaluate
+y_pred = best_xgb.predict(X_test)
 print(classification_report(y_test, y_pred))
-# %%
-#feature importance
-importances = clf_rf.feature_importances_
-feature_names = X_train.columns
-sorted_idx = np.argsort(importances)[::-1]
-
-for idx in sorted_idx[:10]:
-    print(feature_names[idx], importances[idx])
-
-# %%
-'''XGBoost'''
-clf_xgb = XGBClassifier(n_estimators=50, max_depth=10, random_state=42, use_label_encoder=False, eval_metric='logloss')
-clf_xgb.fit(X_train, y_train)
-
-# Make predictions
-y_pred = clf_xgb.predict(X_test)
-print(classification_report(y_test, y_pred))
-
 # %%
 # Feature importance
-importances = clf_xgb.feature_importances_
+importances = best_xgb.feature_importances_
 feature_names = X_train.columns
 sorted_idx = np.argsort(importances)[::-1]
 
@@ -215,48 +161,83 @@ for idx in sorted_idx[:10]:  # Top 10 features
     print(feature_names[idx], importances[idx])
 
 #%%
-corr_matrix = X_train.corr()
+#saving the model with best parameters
+with open("xgb_model.pkl", "wb") as f:
+    pickle.dump(best_xgb, f)
 
-plt.figure(figsize=(10, 8))
-sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
-plt.title("Feature Correlation Heatmap")
+#%%
+# X_sample = X_test.sample(n=5000, random_state=42)  # Adjust sample size for performance
+X_sample = shap.sample(X_test, 10000, random_state=42)
+# %%
+'''SHAP for every mode'''
+explainer = shap.TreeExplainer(best_xgb, approximate=True)
+
+
+# Compute SHAP values
+shap_values_sample = explainer(X_sample, check_additivity=False)
+
+# Handle multi-class case
+if len(shap_values_sample.values.shape) == 3:
+    shap_values_processed = shap_values_sample.values.mean(axis=2)
+else:
+    shap_values_processed = shap_values_sample.values
+
+# Plot SHAP summary
+plt.figure(figsize=(12, 8))
+shap.summary_plot(shap_values_processed, X_sample, show=False) #overall summary plot
+plt.title("SHAP Summary for All Modes", fontsize=14, y=1.05)
 plt.show()
 # %%
-# Save the XGBoost model in binary format
-clf_xgb.save_model('model.json')
+#Summary plot of individual modes
+mode_names = ["air", "rail", "road", "sea"]  # Updated order
 
-#%%
-# Load the model from the saved binary file
-loaded_model = xgb.XGBClassifier()
-loaded_model.load_model('model.json')
-
-# SHAP Explainer
-explainer = shap.Explainer(loaded_model)
-shap_values = explainer(X_test)
-
-# Initialize the SHAP JavaScript library
-shap.initjs()
-# %%
-shap_values_mean = np.abs(shap_values).mean(axis=2)
-
-#%%
-shap.summary_plot(shap_values_mean, X_test, plot_type="bar")
+for i, mode_name in enumerate(mode_names):
+    plt.figure(figsize=(8, 6))  # Create a new figure
+    
+    shap.summary_plot(shap_values_sample.values[:, :, i], X_sample, feature_names=X_sample.columns, show=False)
+    plt.title(f"SHAP Summary for Mode: {mode_name}", fontsize=14, y=1.05)  # Add title
+    plt.show()
 
 # %%
-shap.dependence_plot("feature_name", shap_values, X_test)
+#force plot
+# from IPython.display import display
+
+# # Pick a single sample from X_test
+# sample_idx = 10  # Choose any row index
+# X_single = X_test.iloc[sample_idx:sample_idx+1]  # Keep it as a DataFrame
+
+# # Compute SHAP values for this single sample
+# explainer2 = shap.Explainer(best_xgb)
+# shap_values_single = explainer2(X_single)
+
+# # Define mode names
+# mode_names = ["air", "rail", "road", "sea"]  # Ensure correct order
+
+# # Set light background for better contrast
+# shap.initjs()
+# plt.style.use("default")  # Reset to default style
+
+# # Generate force plots with better tick display
+# for i, mode_name in enumerate(mode_names):
+#     print(f"\nSHAP Force Plot for Mode: {mode_name}")
+
+#     fig, ax = plt.subplots(figsize=(10, 3))  # Adjust figure size
+#     shap.plots.force(
+#         explainer.expected_value[i], 
+#         shap_values_single.values[:, :, i], 
+#         X_single, 
+#         matplotlib=True,  # Use Matplotlib rendering
+#         show=True
+#     )
+#     plt.xticks(fontsize=12)  # Make ticks visible
+#     plt.xlabel("Feature Contribution", fontsize=12)  # Label x-axis
+#     plt.title(f"SHAP Force Plot for Mode: {mode_name}", fontsize=14)
+#     plt.show()
+
 # %%
-# Reduce sample size for faster SHAP computation
-X_sample = X_test.sample(n=500, random_state=42)  # Adjust n based on dataset size
-
-# Compute SHAP values only for the sample
-shap_values_sample = explainer(X_sample)
-
-# Aggregate SHAP values across classes
-shap_values_mean_sample = np.abs(shap_values_sample.values).mean(axis=2)
-
-# Summary Plot
-shap.summary_plot(shap_values_mean_sample, X_sample, plot_type="bar")
-# %%
-shap.summary_plot(shap_values_mean_sample, X_sample)
-
+# Plot SHAP summary
+plt.figure(figsize=(12, 8))
+shap.summary_plot(shap_values_processed, X_sample, plot_type="bar",show=False) #overall summary plot
+plt.title("SHAP Summary for All Modes", fontsize=14, y=1.05)
+plt.show()
 # %%
