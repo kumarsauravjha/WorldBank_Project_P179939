@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>African Transportation Cost Map</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        #map-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        svg {
+            display: block;
+            margin: 0 auto;
+            background-color: #cce5ff;
+        }
+        
+        .land {
+            fill: #1d3557;
+            stroke: #457b9d;
+            stroke-width: 0.5px;
+        }
+        
+        .route {
+            fill: none;
+            stroke-width: 2px;
+            stroke-linecap: round;
+            opacity: 0.8;
+        }
+        
+        .location {
+            cursor: pointer;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            pointer-events: none;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 4px;
+            margin-right: 8px;
+        }
+        
+        .cost-glider {
+            position: relative;
+            width: 180px;
+            height: 30px;
+            margin: 10px 0;
+            background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);
+            clip-path: polygon(0 50%, 90% 0, 100% 50%, 90% 100%);
+        }
+        
+        .glider-marker {
+            position: absolute;
+            width: 2px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .glider-text {
+            position: absolute;
+            font-size: 12px;
+            top: 35px;
+        }
+        
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            text-align: center;
+        }
+        
+        .controls {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        select, button {
+            padding: 8px 12px;
+            margin-right: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            text-align: center;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <div class="controls">
+            <select id="transport-filter">
+                <option value="all">All Transportation Modes</option>
+                <option value="Air">Air</option>
+                <option value="Rail">Rail</option>
+                <option value="Road">Road</option>
+                <option value="Sea">Sea</option>
+            </select>
+            <select id="commodity-filter">
+                <option value="all">All Commodities</option>
+                <!-- Commodity options will be added dynamically -->
+            </select>
+            <select id="source-filter">
+                <option value="all">All Source Countries</option>
+                <!-- Source options will be added dynamically -->
+            </select>
+            <button id="reset-zoom">Reset View</button>
+        </div>
+        <div id="map"></div>
+        <div id="loading">
+            Loading map data...<br>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <small style="font-size: 14px; color: #666; margin-top: 10px; display: block;">
+                Note: To avoid CORS issues with local files, please run this page through a local web server.<br>
+                E.g., run <code>python -m http.server</code> in the project directory and access via http://localhost:8000/chiff/map_5.html
+            </small>
+        </div>
+    </div>
+
+    <script>
+        // Main dimensions
+        const width = 960;
+        const height = 500;
+        
+        // Transportation mode icons (Unicode characters)
+        const modeIcons = {
+            'Air': "✈️",
+            'Rail': "🚄",
+            'Road': "🚗",
+            'Sea': "🚢"
+        };
+        
+        // Create SVG
+        const svg = d3.select("#map")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("viewBox", [0, 0, width, height]);
+        
+        // Create a projection focusing on Africa
+        const projection = d3.geoMercator()
+            .scale(400)
+            .center([20, 0])  // Center on Africa
+            .translate([width / 2, height / 2]);
+        
+        // Create a path generator
+        const path = d3.geoPath()
+            .projection(projection);
+        
+        // Create zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([1, 8])
+            .on("zoom", zoomed);
+        
+        // Apply zoom behavior to SVG
+        svg.call(zoom);
+        
+        // Create a group for the map elements
+        const g = svg.append("g");
+        
+        // Create a tooltip
+        const tooltip = d3.select("body")
+            .append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+        
+        // Try multiple paths for the coordinates file
+        const possiblePaths = [
+            "data/africa_coordinates.csv",
+            "../data/africa_coordinates.csv",
+            "../../data/africa_coordinates.csv",
+            "/data/africa_coordinates.csv"
+        ];
+
+        // Load world map data
+        d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
+            .then(function(worldData) {
+                // Try to load the coordinates file from various paths
+                tryLoadCoordinates(worldData, 0);
+            })
+            .catch(error => {
+                console.error("Error loading world map:", error);
+                d3.select("#loading").text("Error loading world map. Please check the console for details.");
+            });
+        
+        // Function to try loading coordinates from different paths
+        function tryLoadCoordinates(worldData, pathIndex) {
+            if (pathIndex >= possiblePaths.length) {
+                // If all paths failed, use placeholder data
+                processData(worldData, []);
+                return;
+            }
+            
+            const path = possiblePaths[pathIndex];
+            console.log(`Trying to load coordinates from: ${path}`);
+            
+            d3.csv(path)
+                .then(coordinatesData => {
+                    console.log(`Successfully loaded coordinates from: ${path}`);
+                    processData(worldData, coordinatesData);
+                })
+                .catch(error => {
+                    console.warn(`Failed to load from ${path}:`, error);
+                    // Try the next path
+                    tryLoadCoordinates(worldData, pathIndex + 1);
+                });
+        }
+        
+        // Process the data once loaded
+        function processData(worldData, coordinatesData) {
+            // Update loading progress
+            updateProgress(10, "Processing world map...");
+            
+            // Draw the world map
+            g.append("g")
+                .selectAll("path")
+                .data(topojson.feature(worldData, worldData.objects.countries).features)
+                .enter()
+                .append("path")
+                .attr("class", "land")
+                .attr("d", path);
+            
+            // Process the coordinates data
+            updateProgress(30, "Processing country data...");
+            const locations = {};
+            const routesData = [];
+            const commodities = new Set();
+            const countries = new Set();
+            
+            // Parse coordinates if we have data
+            if (coordinatesData && coordinatesData.length > 0) {
+                coordinatesData.forEach(d => {
+                    const country = d.country_code;
+                    locations[country] = {
+                        id: country,
+                        name: d.country_name,
+                        coordinates: [+d.longitude, +d.latitude]
+                    };
+                    countries.add(country);
+                });
+            } else {
+                // If no data loaded, use placeholder coordinates for African countries
+                createPlaceholderCoordinates();
+            }
+            
+            // Create placeholder data for routes
+            updateProgress(50, "Generating transportation routes...");
+            createPlaceholderData();
+            
+            // Update progress before rendering
+            updateProgress(70, "Rendering map...");
+            
+            // Use setTimeout to defer rendering and keep UI responsive
+            setTimeout(() => {
+                renderMap();
+                // Hide loading indicator when complete
+                updateProgress(100, "Complete!");
+                setTimeout(() => {
+                    d3.select("#loading").style("display", "none");
+                }, 500);
+            }, 50);
+            
+            function updateProgress(percent, message) {
+                d3.select("#progress-fill").style("width", `${percent}%`);
+                if (message) {
+                    d3.select("#loading").select("br").node().nextSibling.textContent = message;
+                }
+            }
+            
+            function createPlaceholderCoordinates() {
+                // African countries list with approximate coordinates
+                const africanCountriesData = [
+                    { code: "DZA", name: "Algeria", longitude: 3.05, latitude: 28.03 },
+                    { code: "AGO", name: "Angola", longitude: 17.87, latitude: -11.2 },
+                    { code: "BEN", name: "Benin", longitude: 2.32, latitude: 9.31 },
+                    { code: "BWA", name: "Botswana", longitude: 24.68, latitude: -22.33 },
+                    { code: "BFA", name: "Burkina Faso", longitude: -1.68, latitude: 12.24 },
+                    { code: "BDI", name: "Burundi", longitude: 29.92, latitude: -3.37 },
+                    { code: "CMR", name: "Cameroon", longitude: 12.35, latitude: 7.37 },
+                    { code: "CPV", name: "Cape Verde", longitude: -23.52, latitude: 15.12 },
+                    { code: "CAF", name: "Central African Republic", longitude: 20.94, latitude: 6.61 },
+                    { code: "TCD", name: "Chad", longitude: 18.73, latitude: 15.45 },
+                    { code: "COM", name: "Comoros", longitude: 43.33, latitude: -11.65 },
+                    { code: "COD", name: "DR Congo", longitude: 21.76, latitude: -4.04 },
+                    { code: "DJI", name: "Djibouti", longitude: 42.59, latitude: 11.83 },
+                    { code: "EGY", name: "Egypt", longitude: 30.80, latitude: 26.82 },
+                    { code: "GNQ", name: "Equatorial Guinea", longitude: 10.34, latitude: 1.65 },
+                    { code: "ERI", name: "Eritrea", longitude: 39.78, latitude: 15.18 },
+                    { code: "ETH", name: "Ethiopia", longitude: 40.49, latitude: 9.15 },
+                    { code: "GAB", name: "Gabon", longitude: 11.61, latitude: -0.80 },
+                    { code: "GMB", name: "Gambia", longitude: -15.31, latitude: 13.44 },
+                    { code: "GHA", name: "Ghana", longitude: -1.02, latitude: 7.95 },
+                    { code: "GIN", name: "Guinea", longitude: -9.69, latitude: 9.94 },
+                    { code: "GNB", name: "Guinea-Bissau", longitude: -15.18, latitude: 11.80 },
+                    { code: "CIV", name: "Ivory Coast", longitude: -5.55, latitude: 7.54 },
+                    { code: "KEN", name: "Kenya", longitude: 37.91, latitude: 0.02 },
+                    { code: "LSO", name: "Lesotho", longitude: 28.23, latitude: -29.61 },
+                    { code: "LBR", name: "Liberia", longitude: -9.43, latitude: 6.43 },
+                    { code: "LBY", name: "Libya", longitude: 17.23, latitude: 26.33 },
+                    { code: "MDG", name: "Madagascar", longitude: 46.87, latitude: -18.77 },
+                    { code: "MWI", name: "Malawi", longitude: 34.30, latitude: -13.25 },
+                    { code: "MLI", name: "Mali", longitude: -3.99, latitude: 17.57 },
+                    { code: "MRT", name: "Mauritania", longitude: -10.94, latitude: 21.01 },
+                    { code: "MUS", name: "Mauritius", longitude: 57.55, latitude: -20.35 },
+                    { code: "MAR", name: "Morocco", longitude: -7.09, latitude: 31.79 },
+                    { code: "MOZ", name: "Mozambique", longitude: 35.53, latitude: -18.67 },
+                    { code: "NAM", name: "Namibia", longitude: 18.49, latitude: -22.96 },
+                    { code: "NER", name: "Niger", longitude: 8.08, latitude: 17.61 },
+                    { code: "NGA", name: "Nigeria", longitude: 8.68, latitude: 9.08 },
+                    { code: "RWA", name: "Rwanda", longitude: 29.87, latitude: -1.94 },
+                    { code: "STP", name: "São Tomé and Príncipe", longitude: 6.61, latitude: 0.18 },
+                    { code: "SEN", name: "Senegal", longitude: -14.47, latitude: 14.50 },
+                    { code: "SYC", name: "Seychelles", longitude: 55.49, latitude: -4.68 },
+                    { code: "SLE", name: "Sierra Leone", longitude: -11.78, latitude: 8.46 },
+                    { code: "SOM", name: "Somalia", longitude: 46.20, latitude: 5.15 },
+                    { code: "ZAF", name: "South Africa", longitude: 22.94, latitude: -30.56 },
+                    { code: "SSD", name: "South Sudan", longitude: 31.31, latitude: 6.88 },
+                    { code: "SDN", name: "Sudan", longitude: 30.22, latitude: 12.86 },
+                    { code: "SWZ", name: "Eswatini", longitude: 31.47, latitude: -26.52 },
+                    { code: "TZA", name: "Tanzania", longitude: 34.89, latitude: -6.37 },
+                    { code: "TGO", name: "Togo", longitude: 0.82, latitude: 8.62 },
+                    { code: "TUN", name: "Tunisia", longitude: 9.54, latitude: 33.89 },
+                    { code: "UGA", name: "Uganda", longitude: 32.29, latitude: 1.37 },
+                    { code: "ESH", name: "Western Sahara", longitude: -12.89, latitude: 24.22 },
+                    { code: "ZMB", name: "Zambia", longitude: 27.85, latitude: -13.13 },
+                    { code: "ZWE", name: "Zimbabwe", longitude: 29.87, latitude: -19.02 }
+                ];
+                
+                // Add each country to the locations object
+                africanCountriesData.forEach(country => {
+                    locations[country.code] = {
+                        id: country.code,
+                        name: country.name,
+                        coordinates: [country.longitude, country.latitude]
+                    };
+                    countries.add(country.code);
+                });
+            }
+            
+            function createPlaceholderData() {
+                // Get the list of country codes from the locations
+                const africanCountries = Object.keys(locations);
+                
+                // Pre-defined routes with pre-calculated averages
+                // This avoids generating random routes on each load
+                const predefinedRoutes = [
+                    { source: "ZAF", target: "NAM", mode: "Road", commodity: "Minerals", cost: 1250.45 },
+                    { source: "ZAF", target: "BWA", mode: "Road", commodity: "Electronics", cost: 985.30 },
+                    { source: "ZAF", target: "MOZ", mode: "Rail", commodity: "Agriculture", cost: 1420.75 },
+                    { source: "EGY", target: "SDN", mode: "Road", commodity: "Textiles", cost: 1100.20 },
+                    { source: "MAR", target: "DZA", mode: "Road", commodity: "Chemicals", cost: 875.60 },
+                    { source: "NGA", target: "BEN", mode: "Road", commodity: "Agriculture", cost: 650.80 },
+                    { source: "KEN", target: "TZA", mode: "Road", commodity: "Agriculture", cost: 725.35 },
+                    { source: "KEN", target: "UGA", mode: "Road", commodity: "Electronics", cost: 680.25 },
+                    { source: "KEN", target: "ETH", mode: "Air", commodity: "Electronics", cost: 1850.40 },
+                    { source: "DZA", target: "TUN", mode: "Rail", commodity: "Chemicals", cost: 920.15 },
+                    { source: "CIV", target: "GHA", mode: "Road", commodity: "Agriculture", cost: 580.90 },
+                    { source: "SEN", target: "MLI", mode: "Rail", commodity: "Minerals", cost: 1050.75 },
+                    { source: "ZAF", target: "ZWE", mode: "Road", commodity: "Minerals", cost: 1175.30 },
+                    { source: "TZA", target: "MOZ", mode: "Sea", commodity: "Agriculture", cost: 1320.45 },
+                    { source: "AGO", target: "NAM", mode: "Road", commodity: "Minerals", cost: 1450.80 },
+                    { source: "EGY", target: "LBY", mode: "Road", commodity: "Chemicals", cost: 1580.25 },
+                    { source: "NGA", target: "CMR", mode: "Road", commodity: "Agriculture", cost: 720.60 },
+                    { source: "ETH", target: "SOM", mode: "Road", commodity: "Textiles", cost: 930.40 },
+                    { source: "DZA", target: "MLI", mode: "Rail", commodity: "Minerals", cost: 1650.35 },
+                    { source: "UGA", target: "RWA", mode: "Road", commodity: "Electronics", cost: 675.20 },
+                    { source: "ZAF", target: "LSO", mode: "Road", commodity: "Textiles", cost: 520.15 },
+                    { source: "GHA", target: "BFA", mode: "Road", commodity: "Agriculture", cost: 780.90 },
+                    { source: "SEN", target: "GMB", mode: "Road", commodity: "Agriculture", cost: 380.45 },
+                    { source: "ZMB", target: "ZWE", mode: "Road", commodity: "Minerals", cost: 910.30 },
+                    { source: "KEN", target: "SOM", mode: "Air", commodity: "Electronics", cost: 1950.75 },
+                    { source: "MAR", target: "MRT", mode: "Rail", commodity: "Chemicals", cost: 1750.60 },
+                    { source: "NGA", target: "NER", mode: "Road", commodity: "Agriculture", cost: 825.40 },
+                    { source: "TZA", target: "KEN", mode: "Rail", commodity: "Minerals", cost: 1200.35 },
+                    { source: "EGY", target: "SAU", mode: "Sea", commodity: "Chemicals", cost: 2100.25 },
+                    { source: "ZAF", target: "MWI", mode: "Air", commodity: "Electronics", cost: 2250.15 },
+                    { source: "DZA", target: "NER", mode: "Rail", commodity: "Minerals", cost: 1350.90 },
+                    { source: "CIV", target: "LBR", mode: "Road", commodity: "Agriculture", cost: 620.45 },
+                    { source: "KEN", target: "SDN", mode: "Air", commodity: "Textiles", cost: 1850.30 },
+                    { source: "CMR", target: "NGA", mode: "Road", commodity: "Electronics", cost: 710.75 },
+                    { source: "ETH", target: "DJI", mode: "Rail", commodity: "Chemicals", cost: 950.60 },
+                    { source: "TUN", target: "LBY", mode: "Road", commodity: "Chemicals", cost: 1050.40 },
+                    { source: "SEN", target: "GIN", mode: "Road", commodity: "Agriculture", cost: 580.35 },
+                    { source: "AGO", target: "COD", mode: "Road", commodity: "Minerals", cost: 1250.25 },
+                    { source: "MOZ", target: "ZWE", mode: "Road", commodity: "Agriculture", cost: 850.15 },
+                    { source: "GHA", target: "TGO", mode: "Road", commodity: "Textiles", cost: 450.90 }
+                ];
+                
+                // Add all predefined routes to routesData
+                predefinedRoutes.forEach(route => {
+                    // Only add routes if both source and target countries exist in our locations
+                    if (locations[route.source] && locations[route.target]) {
+                        routesData.push(route);
+                        commodities.add(route.commodity);
+                    }
+                });
+                
+                // If we have fewer than 10 valid routes (due to missing countries),
+                // generate some additional random routes to ensure there's enough data
+                if (routesData.length < 10) {
+                    const modes = ["Air", "Rail", "Road", "Sea"];
+                    const commodityTypes = ["Electronics", "Minerals", "Agriculture", "Textiles", "Chemicals"];
+                    
+                    // Add some random routes to ensure we have data to display
+                    for (let i = 0; i < 20 && routesData.length < 40; i++) {
+                        const sourceIndex = Math.floor(Math.random() * africanCountries.length);
+                        let targetIndex;
+                        do {
+                            targetIndex = Math.floor(Math.random() * africanCountries.length);
+                        } while (sourceIndex === targetIndex);
+                        
+                        const source = africanCountries[sourceIndex];
+                        const target = africanCountries[targetIndex];
+                        const mode = modes[Math.floor(Math.random() * modes.length)];
+                        const commodity = commodityTypes[Math.floor(Math.random() * commodityTypes.length)];
+                        const cost = 500 + Math.random() * 2000;
+                        
+                        routesData.push({
+                            source: source,
+                            target: target,
+                            mode: mode,
+                            commodity: commodity,
+                            cost: cost
+                        });
+                        
+                        commodities.add(commodity);
+                    }
+                }
+            }
+            
+            function renderMap() {
+                // Filter for valid routes (both source and target exist in locations)
+                const validRoutes = routesData.filter(d => 
+                    locations[d.source] && locations[d.target]
+                );
+                
+                // Create color scale for costs
+                const costs = validRoutes.map(d => d.cost);
+                const minCost = Math.min(...costs);
+                const maxCost = Math.max(...costs);
+                
+                const colorScale = d3.scaleLinear()
+                    .domain([minCost, (minCost + maxCost) / 2, maxCost])
+                    .range(["#00ff00", "#ffff00", "#ff0000"]);
+                
+                // Draw the routes in batches to avoid UI freezing
+                const routesGroup = g.append("g");
+                const batchSize = 10; // Process 10 routes at a time
+                let currentIndex = 0;
+                
+                function processRouteBatch() {
+                    // Get the current batch of routes
+                    const endIndex = Math.min(currentIndex + batchSize, validRoutes.length);
+                    const currentBatch = validRoutes.slice(currentIndex, endIndex);
+                    
+                    // Process this batch
+                    routesGroup.selectAll(`.route-batch-${currentIndex}`)
+                        .data(currentBatch)
+                        .enter()
+                        .append("path")
+                        .attr("class", `route route-batch-${currentIndex}`)
+                        .attr("data-mode", d => d.mode)
+                        .attr("data-commodity", d => d.commodity)
+                        .attr("data-source", d => d.source)
+                        .attr("d", function(d) {
+                            const source = locations[d.source];
+                            const target = locations[d.target];
+                            
+                            if (!source || !target) return null;
+                            
+                            // Calculate the arc path
+                            const sourceXY = projection(source.coordinates);
+                            const targetXY = projection(target.coordinates);
+                            
+                            // Calculate the midpoint with an offset to create an arc
+                            const dx = targetXY[0] - sourceXY[0];
+                            const dy = targetXY[1] - sourceXY[1];
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            
+                            // Adjust the arc height based on the distance
+                            const arcHeight = dist * 0.15;
+                            
+                            // Create an arc path
+                            return `M${sourceXY[0]},${sourceXY[1]} 
+                                    Q${(sourceXY[0] + targetXY[0]) / 2},${(sourceXY[1] + targetXY[1]) / 2 - arcHeight} 
+                                    ${targetXY[0]},${targetXY[1]}`;
+                        })
+                        .style("stroke", d => colorScale(d.cost))
+                        .style("visibility", "visible")
+                        .on("mouseover", function(event, d) {
+                            d3.select(this)
+                                .style("stroke-width", 4);
+                            
+                            const source = locations[d.source];
+                            const target = locations[d.target];
+                            
+                            if (source && target) {
+                                tooltip.transition()
+                                    .duration(200)
+                                    .style("opacity", 0.9);
+                                    
+                                tooltip.html(`
+                                    <strong>Route:</strong> ${source.name} to ${target.name}<br>
+                                    <strong>Mode:</strong> ${d.mode}<br>
+                                    <strong>Commodity:</strong> ${d.commodity}<br>
+                                    <strong>Average Cost:</strong> $${d.cost.toFixed(2)}
+                                `)
+                                    .style("left", (event.pageX + 10) + "px")
+                                    .style("top", (event.pageY - 28) + "px");
+                            }
+                        })
+                        .on("mouseout", function() {
+                            d3.select(this)
+                                .style("stroke-width", 2);
+                                
+                            tooltip.transition()
+                                .duration(500)
+                                .style("opacity", 0);
+                        });
+                    
+                    // Update progress if we're still in the loading phase
+                    if (d3.select("#loading").style("display") !== "none") {
+                        const percent = 70 + Math.min(29, (currentIndex / validRoutes.length) * 29);
+                        updateProgress(percent, `Rendering routes (${currentIndex}/${validRoutes.length})...`);
+                    }
+                    
+                    // Move to the next batch
+                    currentIndex = endIndex;
+                    
+                    // Continue if there are more routes to process
+                    if (currentIndex < validRoutes.length) {
+                        setTimeout(processRouteBatch, 0);
+                    } else {
+                        // When routes are done, add location markers and complete the map
+                        setTimeout(finalizeMap, 0);
+                    }
+                }
+                
+                // Start processing route batches
+                processRouteBatch();
+                
+                function finalizeMap() {
+                    // Add location markers
+                    g.selectAll("circle")
+                        .data(Object.values(locations))
+                        .enter()
+                        .append("circle")
+                        .attr("class", "location")
+                        .attr("cx", d => projection(d.coordinates)[0])
+                        .attr("cy", d => projection(d.coordinates)[1])
+                        .attr("r", 5)
+                        .style("fill", "red")
+                        .style("stroke", "white")
+                        .style("stroke-width", 1.5)
+                        .on("mouseover", function(event, d) {
+                            d3.select(this)
+                                .attr("r", 8);
+                                
+                            tooltip.transition()
+                                .duration(200)
+                                .style("opacity", 0.9);
+                                
+                            tooltip.html(`<strong>${d.name} (${d.id})</strong>`)
+                                .style("left", (event.pageX + 10) + "px")
+                                .style("top", (event.pageY - 28) + "px");
+                        })
+                        .on("mouseout", function() {
+                            d3.select(this)
+                                .attr("r", 5);
+                                
+                            tooltip.transition()
+                                .duration(500)
+                                .style("opacity", 0);
+                        });
+                        
+                    // Add route mode icons in batches
+                    let iconIndex = 0;
+                    
+                    function processIconBatch() {
+                        const iconEndIndex = Math.min(iconIndex + batchSize, validRoutes.length);
+                        const iconBatch = validRoutes.slice(iconIndex, iconEndIndex);
+                        
+                        routesGroup.selectAll(`.icon-batch-${iconIndex}`)
+                            .data(iconBatch)
+                            .enter()
+                            .append("text")
+                            .attr("class", `mode-icon icon-batch-${iconIndex}`)
+                            .attr("data-mode", d => d.mode)
+                            .attr("data-commodity", d => d.commodity)
+                            .attr("data-source", d => d.source)
+                            .attr("x", function(d) {
+                                const source = locations[d.source];
+                                const target = locations[d.target];
+                                
+                                if (!source || !target) return 0;
+                                
+                                const sourceXY = projection(source.coordinates);
+                                const targetXY = projection(target.coordinates);
+                                
+                                return (sourceXY[0] + targetXY[0]) / 2;
+                            })
+                            .attr("y", function(d) {
+                                const source = locations[d.source];
+                                const target = locations[d.target];
+                                
+                                if (!source || !target) return 0;
+                                
+                                // Calculate the midpoint with the arc offset
+                                const sourceXY = projection(source.coordinates);
+                                const targetXY = projection(target.coordinates);
+                                const dy = targetXY[1] - sourceXY[1];
+                                const dx = targetXY[0] - sourceXY[0];
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+                                const arcHeight = dist * 0.15;
+                                
+                                return (sourceXY[1] + targetXY[1]) / 2 - arcHeight;
+                            })
+                            .attr("text-anchor", "middle")
+                            .attr("dominant-baseline", "central")
+                            .attr("font-size", "16px")
+                            .text(d => modeIcons[d.mode] || "🔄")
+                            .style("visibility", "visible");
+                            
+                        iconIndex = iconEndIndex;
+                        
+                        if (iconIndex < validRoutes.length) {
+                            setTimeout(processIconBatch, 0);
+                        } else {
+                            // When icons are done, create the legend and filters
+                            createLegendAndFilters();
+                        }
+                    }
+                    
+                    // Start processing icon batches
+                    processIconBatch();
+                }
+                
+                function createLegendAndFilters() {
+                    // Create a legend for cost colors
+                    const legend = d3.select("#map-container")
+                        .append("div")
+                        .attr("class", "legend");
+                    
+                    // Cost legend with glider shape
+                    legend.append("h4")
+                        .style("margin-top", "0")
+                        .style("margin-bottom", "8px")
+                        .text("Cost Legend");
+                    
+                    const costLegend = legend.append("div");
+                    
+                    // Add glider shape with gradient
+                    const glider = costLegend.append("div")
+                        .attr("class", "cost-glider");
+                    
+                    // Add markers and labels
+                    const costLabels = [minCost, Math.round((minCost + maxCost) / 2), maxCost];
+                    const positions = [0, 50, 100]; // Percentage positions along the glider
+                    
+                    costLabels.forEach((cost, i) => {
+                        // Add marker line
+                        glider.append("div")
+                            .attr("class", "glider-marker")
+                            .style("left", `${positions[i]}%`);
+                        
+                        // Add text label
+                        glider.append("div")
+                            .attr("class", "glider-text")
+                            .style("left", `${positions[i]}%`)
+                            .style("transform", "translateX(-50%)")
+                            .text(`$${cost.toFixed(0)} ${i === 0 ? "(Low)" : i === 1 ? "(Medium)" : "(High)"}`);
+                    });
+                    
+                    // Transportation mode legend
+                    legend.append("h4")
+                        .style("margin-top", "30px")
+                        .style("margin-bottom", "8px")
+                        .text("Transportation Modes");
+                        
+                    const modeLegend = legend.append("div");
+                    
+                    Object.entries(modeIcons).forEach(([mode, icon]) => {
+                        const item = modeLegend.append("div")
+                            .attr("class", "legend-item");
+                        
+                        item.append("div")
+                            .attr("class", "legend-icon")
+                            .text(icon);
+                        
+                        item.append("span")
+                            .text(mode);
+                    });
+                    
+                    // Commodity types legend
+                    legend.append("h4")
+                        .style("margin-top", "16px")
+                        .style("margin-bottom", "8px")
+                        .text("Commodity Types");
+                    
+                    const commodityLegend = legend.append("div");
+                    
+                    // Create consistent colors for commodities
+                    const commodityColors = {};
+                    const colorArray = ["#4287f5", "#f542a7", "#42f54b", "#f5d742", "#f54242", "#42f5f5", "#9042f5", "#f5a142"];
+                    
+                    Array.from(commodities).sort().forEach((commodity, i) => {
+                        commodityColors[commodity] = colorArray[i % colorArray.length];
+                        
+                        const item = commodityLegend.append("div")
+                            .attr("class", "legend-item");
+                        
+                        item.append("div")
+                            .attr("class", "legend-color")
+                            .style("background-color", commodityColors[commodity])
+                            .style("height", "10px");
+                        
+                        item.append("span")
+                            .text(commodity.charAt(0).toUpperCase() + commodity.slice(1));
+                    });
+                    
+                    // Populate commodity filter dropdown
+                    const commoditySelect = d3.select("#commodity-filter");
+                    commoditySelect.selectAll("option:not(:first-child)").remove();
+                    Array.from(commodities).sort().forEach(commodity => {
+                        commoditySelect.append("option")
+                            .attr("value", commodity)
+                            .text(commodity.charAt(0).toUpperCase() + commodity.slice(1));
+                    });
+                    
+                    // Populate source country filter dropdown
+                    const sourceSelect = d3.select("#source-filter");
+                    sourceSelect.selectAll("option:not(:first-child)").remove();
+                    Array.from(countries).sort().forEach(country => {
+                        const locationName = locations[country] ? locations[country].name : country;
+                        sourceSelect.append("option")
+                            .attr("value", country)
+                            .text(`${locationName} (${country})`);
+                    });
+                    
+                    // Function to apply filters
+                    function applyFilters() {
+                        const selectedMode = d3.select("#transport-filter").node().value;
+                        const selectedCommodity = d3.select("#commodity-filter").node().value;
+                        const selectedSource = d3.select("#source-filter").node().value;
+                        
+                        d3.selectAll(".route").style("visibility", d => {
+                            const modeMatch = selectedMode === "all" || d.mode === selectedMode;
+                            const commodityMatch = selectedCommodity === "all" || d.commodity === selectedCommodity;
+                            const sourceMatch = selectedSource === "all" || d.source === selectedSource;
+                            return modeMatch && commodityMatch && sourceMatch ? "visible" : "hidden";
+                        });
+                        
+                        d3.selectAll(".mode-icon").style("visibility", d => {
+                            const modeMatch = selectedMode === "all" || d.mode === selectedMode;
+                            const commodityMatch = selectedCommodity === "all" || d.commodity === selectedCommodity;
+                            const sourceMatch = selectedSource === "all" || d.source === selectedSource;
+                            return modeMatch && commodityMatch && sourceMatch ? "visible" : "hidden";
+                        });
+                    }
+                    
+                    // Set up transport mode filtering
+                    d3.select("#transport-filter").on("change", applyFilters);
+                    
+                    // Set up commodity filtering
+                    d3.select("#commodity-filter").on("change", applyFilters);
+                    
+                    // Set up source filtering
+                    d3.select("#source-filter").on("change", applyFilters);
+                    
+                    // Reset zoom button
+                    d3.select("#reset-zoom").on("click", function() {
+                        svg.transition()
+                            .duration(750)
+                            .call(zoom.transform, d3.zoomIdentity);
+                    });
+                }
+            }
+        }
+        
+        // Zoom function
+        function zoomed(event) {
+            g.attr("transform", event.transform);
+        }
+    </script>
+</body>
+</html> 

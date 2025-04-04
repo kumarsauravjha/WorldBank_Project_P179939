@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Map Graph with Cost-based Color</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; }
+    .city-label {
+      font-size: 14px;
+      font-weight: bold;
+      text-shadow: 1px 1px 3px white;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- D3 JS -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <script>
+    // Create the map
+    const map = L.map('map').setView([36.5, -119.5], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data © <a href="https://openstreetmap.org">OpenStreetMap</a>',
+    }).addTo(map);
+
+    // Edge data
+    const edges = [
+      {
+        source: "San Francisco",
+        target: "Los Angeles",
+        coords: [[37.77, -122.41], [34.05, -118.24]],
+        cost: 100
+      },
+      {
+        source: "San Francisco",
+        target: "Las Vegas",
+        coords: [[37.77, -122.41], [36.17, -115.14]],
+        cost: 300
+      },
+      {
+        source: "Los Angeles",
+        target: "Las Vegas",
+        coords: [[34.05, -118.24], [36.17, -115.14]],
+        cost: 150
+      }
+    ];
+
+    // Cities with their coordinates
+    const cities = {
+      "San Francisco": [37.77, -122.41],
+      "Los Angeles": [34.05, -118.24],
+      "Las Vegas": [36.17, -115.14]
+    };
+
+    // Add city markers
+    for (let city in cities) {
+      const latlng = cities[city];
+      L.circleMarker(latlng, {
+        radius: 6,
+        color: 'black',
+        fillColor: 'blue',
+        fillOpacity: 0.7
+      }).bindPopup(`<b>${city}</b>`).addTo(map);
+    }
+
+    // Create a D3 color scale
+    const costExtent = d3.extent(edges, d => d.cost);
+    const colorScale = d3.scaleSequential()
+      .domain(costExtent)
+      .interpolator(d3.interpolatePlasma);
+
+    // Create an SVG layer on top of the map
+    L.svg().addTo(map);
+    const svg = d3.select("#map").select("svg");
+    const g = svg.append("g").attr("class", "leaflet-zoom-hide");
+
+    function updatePaths() {
+      const lines = g.selectAll("line")
+        .data(edges);
+
+      lines.enter()
+        .append("line")
+        .attr("stroke-width", 4)
+        .merge(lines)
+        .attr("stroke", d => colorScale(d.cost))
+        .attr("x1", d => map.latLngToLayerPoint(d.coords[0]).x)
+        .attr("y1", d => map.latLngToLayerPoint(d.coords[0]).y)
+        .attr("x2", d => map.latLngToLayerPoint(d.coords[1]).x)
+        .attr("y2", d => map.latLngToLayerPoint(d.coords[1]).y);
+
+      lines.exit().remove();
+    }
+
+    map.on("zoomend moveend", updatePaths);
+    updatePaths();
+  </script>
+</body>
+</html>

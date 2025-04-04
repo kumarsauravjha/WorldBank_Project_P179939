@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transportation Cost Map</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        #map-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        svg {
+            display: block;
+            margin: 0 auto;
+            background-color: #cce5ff;
+        }
+        
+        .land {
+            fill: #1d3557;
+            stroke: #457b9d;
+            stroke-width: 0.5px;
+        }
+        
+        .route {
+            fill: none;
+            stroke-width: 2px;
+            stroke-linecap: round;
+            opacity: 0.8;
+        }
+        
+        .location {
+            cursor: pointer;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            pointer-events: none;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 4px;
+            margin-right: 8px;
+        }
+        
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            text-align: center;
+        }
+        
+        .controls {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        select, button {
+            padding: 8px 12px;
+            margin-right: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <div class="controls">
+            <select id="transport-filter">
+                <option value="all">All Transportation Modes</option>
+                <option value="air">Air</option>
+                <option value="rail">Rail</option>
+                <option value="road">Road</option>
+                <option value="sea">Sea</option>
+            </select>
+            <button id="reset-zoom">Reset View</button>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <script>
+        // Main dimensions
+        const width = 960;
+        const height = 500;
+        
+        // Sample data - replace with your actual data
+        const transportationData = {
+            locations: [
+                { id: "nyc", name: "New York", coordinates: [-74.006, 40.7128] },
+                { id: "lon", name: "London", coordinates: [-0.1278, 51.5074] },
+                { id: "tok", name: "Tokyo", coordinates: [139.6917, 35.6895] },
+                { id: "syd", name: "Sydney", coordinates: [151.2093, -33.8688] },
+                { id: "rio", name: "Rio de Janeiro", coordinates: [-43.1729, -22.9068] },
+                { id: "cpt", name: "Cape Town", coordinates: [18.4241, -33.9249] },
+                { id: "dub", name: "Dubai", coordinates: [55.2708, 25.2048] },
+                { id: "mum", name: "Mumbai", coordinates: [72.8777, 19.0760] },
+                { id: "sin", name: "Singapore", coordinates: [103.8198, 1.3521] },
+                { id: "sfo", name: "San Francisco", coordinates: [-122.4194, 37.7749] },
+                { id: "los", name: "Lagos", coordinates: [3.3792, 6.5244] },
+                { id: "mex", name: "Mexico City", coordinates: [-99.1332, 19.4326] },
+                { id: "bjs", name: "Beijing", coordinates: [116.4074, 39.9042] },
+                { id: "mos", name: "Moscow", coordinates: [37.6173, 55.7558] },
+                { id: "par", name: "Paris", coordinates: [2.3522, 48.8566] }
+            ],
+            routes: [
+                { source: "nyc", target: "lon", cost: 850, mode: "air" },
+                { source: "nyc", target: "sfo", cost: 350, mode: "air" },
+                { source: "lon", target: "par", cost: 200, mode: "rail" },
+                { source: "lon", target: "mos", cost: 500, mode: "air" },
+                { source: "tok", target: "bjs", cost: 450, mode: "air" },
+                { source: "tok", target: "sin", cost: 700, mode: "air" },
+                { source: "syd", target: "sin", cost: 600, mode: "air" },
+                { source: "rio", target: "mex", cost: 950, mode: "air" },
+                { source: "cpt", target: "los", cost: 750, mode: "air" },
+                { source: "dub", target: "mum", cost: 400, mode: "air" },
+                { source: "sin", target: "dub", cost: 550, mode: "air" },
+                { source: "mum", target: "lon", cost: 900, mode: "air" },
+                { source: "nyc", target: "mex", cost: 300, mode: "air" },
+                { source: "par", target: "cpt", cost: 1200, mode: "air" },
+                { source: "sfo", target: "tok", cost: 1100, mode: "air" },
+                { source: "par", target: "mos", cost: 250, mode: "rail" },
+                { source: "mos", target: "bjs", cost: 450, mode: "rail" },
+                { source: "dub", target: "cpt", cost: 1500, mode: "sea" },
+                { source: "sin", target: "syd", cost: 1000, mode: "sea" },
+                { source: "mex", target: "sfo", cost: 150, mode: "road" },
+                { source: "lon", target: "par", cost: 120, mode: "road" },
+                { source: "los", target: "cpt", cost: 800, mode: "sea" },
+                { source: "mum", target: "sin", cost: 650, mode: "sea" }
+            ]
+        };
+        
+        // Transportation mode icons (Unicode characters)
+        const modeIcons = {
+            air: "✈️",
+            rail: "🚄",
+            road: "🚗",
+            sea: "🚢"
+        };
+        
+        // Create color scale for costs
+        const costs = transportationData.routes.map(d => d.cost);
+        const minCost = Math.min(...costs);
+        const maxCost = Math.max(...costs);
+        
+        const colorScale = d3.scaleLinear()
+            .domain([minCost, (minCost + maxCost) / 2, maxCost])
+            .range(["#00ff00", "#ffff00", "#ff0000"]);
+        
+        // Create SVG
+        const svg = d3.select("#map")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("viewBox", [0, 0, width, height]);
+        
+        // Create a projection
+        const projection = d3.geoMercator()
+            .scale(140)
+            .center([0, 0])
+            .translate([width / 2, height / 2]);
+        
+        // Create a path generator
+        const path = d3.geoPath()
+            .projection(projection);
+        
+        // Create zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([1, 8])
+            .on("zoom", zoomed);
+        
+        // Apply zoom behavior to SVG
+        svg.call(zoom);
+        
+        // Create a group for the map elements
+        const g = svg.append("g");
+        
+        // Create a tooltip
+        const tooltip = d3.select("body")
+            .append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+        
+        // Load world map data
+        d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
+            .then(function(data) {
+                // Draw the world map
+                g.append("g")
+                    .selectAll("path")
+                    .data(topojson.feature(data, data.objects.countries).features)
+                    .enter()
+                    .append("path")
+                    .attr("class", "land")
+                    .attr("d", path);
+                
+                // Draw the routes
+                const routesGroup = g.append("g");
+                
+                routesGroup.selectAll("path")
+                    .data(transportationData.routes)
+                    .enter()
+                    .append("path")
+                    .attr("class", "route")
+                    .attr("data-mode", d => d.mode)
+                    .attr("d", function(d) {
+                        const source = transportationData.locations.find(loc => loc.id === d.source);
+                        const target = transportationData.locations.find(loc => loc.id === d.target);
+                        
+                        // Calculate the arc path
+                        const sourceXY = projection(source.coordinates);
+                        const targetXY = projection(target.coordinates);
+                        
+                        // Calculate the midpoint with an offset to create an arc
+                        const dx = targetXY[0] - sourceXY[0];
+                        const dy = targetXY[1] - sourceXY[1];
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // Adjust the arc height based on the distance
+                        const arcHeight = dist * 0.15;
+                        
+                        // Create an arc path
+                        return `M${sourceXY[0]},${sourceXY[1]} 
+                                Q${(sourceXY[0] + targetXY[0]) / 2},${(sourceXY[1] + targetXY[1]) / 2 - arcHeight} 
+                                ${targetXY[0]},${targetXY[1]}`;
+                    })
+                    .style("stroke", d => colorScale(d.cost))
+                    .on("mouseover", function(event, d) {
+                        d3.select(this)
+                            .style("stroke-width", 4);
+                        
+                        const source = transportationData.locations.find(loc => loc.id === d.source);
+                        const target = transportationData.locations.find(loc => loc.id === d.target);
+                        
+                        tooltip.transition()
+                            .duration(200)
+                            .style("opacity", 0.9);
+                            
+                        tooltip.html(`
+                            <strong>Route:</strong> ${source.name} to ${target.name}<br>
+                            <strong>Mode:</strong> ${d.mode.charAt(0).toUpperCase() + d.mode.slice(1)}<br>
+                            <strong>Cost:</strong> $${d.cost}
+                        `)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this)
+                            .style("stroke-width", 2);
+                            
+                        tooltip.transition()
+                            .duration(500)
+                            .style("opacity", 0);
+                    });
+                
+                // Add location markers and icons
+                g.selectAll("circle")
+                    .data(transportationData.locations)
+                    .enter()
+                    .append("circle")
+                    .attr("class", "location")
+                    .attr("cx", d => projection(d.coordinates)[0])
+                    .attr("cy", d => projection(d.coordinates)[1])
+                    .attr("r", 6)
+                    .style("fill", "red")
+                    .style("stroke", "white")
+                    .style("stroke-width", 2)
+                    .on("mouseover", function(event, d) {
+                        d3.select(this)
+                            .attr("r", 8);
+                            
+                        tooltip.transition()
+                            .duration(200)
+                            .style("opacity", 0.9);
+                            
+                        tooltip.html(`<strong>${d.name}</strong>`)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this)
+                            .attr("r", 6);
+                            
+                        tooltip.transition()
+                            .duration(500)
+                            .style("opacity", 0);
+                    });
+                
+                // Add mode icons at the midpoint of each route
+                routesGroup.selectAll("text")
+                    .data(transportationData.routes)
+                    .enter()
+                    .append("text")
+                    .attr("class", "mode-icon")
+                    .attr("data-mode", d => d.mode)
+                    .attr("x", function(d) {
+                        const source = transportationData.locations.find(loc => loc.id === d.source);
+                        const target = transportationData.locations.find(loc => loc.id === d.target);
+                        const sourceXY = projection(source.coordinates);
+                        const targetXY = projection(target.coordinates);
+                        
+                        return (sourceXY[0] + targetXY[0]) / 2;
+                    })
+                    .attr("y", function(d) {
+                        const source = transportationData.locations.find(loc => loc.id === d.source);
+                        const target = transportationData.locations.find(loc => loc.id === d.target);
+                        const sourceXY = projection(source.coordinates);
+                        const targetXY = projection(target.coordinates);
+                        
+                        // Calculate the midpoint with the arc offset
+                        const dy = targetXY[1] - sourceXY[1];
+                        const dx = targetXY[0] - sourceXY[0];
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const arcHeight = dist * 0.15;
+                        
+                        return (sourceXY[1] + targetXY[1]) / 2 - arcHeight;
+                    })
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "16px")
+                    .text(d => modeIcons[d.mode]);
+                
+                // Create a legend for cost colors
+                const legend = d3.select("#map-container")
+                    .append("div")
+                    .attr("class", "legend");
+                
+                // Cost legend
+                legend.append("h4")
+                    .style("margin-top", "0")
+                    .style("margin-bottom", "8px")
+                    .text("Cost Legend");
+                
+                const costLegend = legend.append("div");
+                
+                [minCost, Math.round((minCost + maxCost) / 2), maxCost].forEach((cost, i) => {
+                    const item = costLegend.append("div")
+                        .attr("class", "legend-item");
+                    
+                    item.append("div")
+                        .attr("class", "legend-color")
+                        .style("background-color", colorScale(cost));
+                    
+                    item.append("span")
+                        .text(`$${cost} ${i === 0 ? "(Low)" : i === 1 ? "(Medium)" : "(High)"}`);
+                });
+                
+                // Transportation mode legend
+                legend.append("h4")
+                    .style("margin-top", "16px")
+                    .style("margin-bottom", "8px")
+                    .text("Transportation Modes");
+                
+                const modeLegend = legend.append("div");
+                
+                Object.entries(modeIcons).forEach(([mode, icon]) => {
+                    const item = modeLegend.append("div")
+                        .attr("class", "legend-item");
+                    
+                    item.append("div")
+                        .attr("class", "legend-icon")
+                        .text(icon);
+                    
+                    item.append("span")
+                        .text(mode.charAt(0).toUpperCase() + mode.slice(1));
+                });
+                
+                // Set up filtering
+                d3.select("#transport-filter").on("change", function() {
+                    const selectedMode = this.value;
+                    
+                    if (selectedMode === "all") {
+                        d3.selectAll(".route").style("visibility", "visible");
+                        d3.selectAll(".mode-icon").style("visibility", "visible");
+                    } else {
+                        d3.selectAll(".route").style("visibility", d => d.mode === selectedMode ? "visible" : "hidden");
+                        d3.selectAll(".mode-icon").style("visibility", d => d.mode === selectedMode ? "visible" : "hidden");
+                    }
+                });
+                
+                // Reset zoom button
+                d3.select("#reset-zoom").on("click", function() {
+                    svg.transition()
+                        .duration(750)
+                        .call(zoom.transform, d3.zoomIdentity);
+                });
+            });
+        
+        // Zoom function
+        function zoomed(event) {
+            g.attr("transform", event.transform);
+        }
+    </script>
+</body>
+</html>

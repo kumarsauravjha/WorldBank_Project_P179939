@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    
+        <script>
+            L_NO_TOUCH = false;
+            L_DISABLE_3D = false;
+        </script>
+    
+    <style>html, body {width: 100%;height: 100%;margin: 0;padding: 0;}</style>
+    <style>#map {position:absolute;top:0;bottom:0;right:0;left:0;}</style>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_74d4c647a4d731d30a91acb3cf80d07e {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_74d4c647a4d731d30a91acb3cf80d07e" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_74d4c647a4d731d30a91acb3cf80d07e = L.map(
+                "map_74d4c647a4d731d30a91acb3cf80d07e",
+                {
+                    center: [36.5, -119.5],
+                    crs: L.CRS.EPSG3857,
+                    zoom: 6,
+                    zoomControl: true,
+                    preferCanvas: false,
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_20fd49cf940dc3d192d2aa13c1b997ff = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {"attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e", "detectRetina": false, "maxNativeZoom": 20, "maxZoom": 20, "minZoom": 0, "noWrap": false, "opacity": 1, "subdomains": "abcd", "tms": false}
+            );
+        
+    
+            tile_layer_20fd49cf940dc3d192d2aa13c1b997ff.addTo(map_74d4c647a4d731d30a91acb3cf80d07e);
+        
+    
+            var circle_marker_aa4311bad9b498802ed13248af8a7201 = L.circleMarker(
+                [37.77, -122.41],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "blue", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_74d4c647a4d731d30a91acb3cf80d07e);
+        
+    
+        var popup_b878901aa92416c012f3a6688d3dae08 = L.popup({"maxWidth": 200});
+
+        
+            
+                var html_4b45b81e166f17730d5b765446512b5c = $(`<div id="html_4b45b81e166f17730d5b765446512b5c" style="width: 100.0%; height: 100.0%;"><b>San Francisco</b></div>`)[0];
+                popup_b878901aa92416c012f3a6688d3dae08.setContent(html_4b45b81e166f17730d5b765446512b5c);
+            
+        
+
+        circle_marker_aa4311bad9b498802ed13248af8a7201.bindPopup(popup_b878901aa92416c012f3a6688d3dae08)
+        ;
+
+        
+    
+    
+            circle_marker_aa4311bad9b498802ed13248af8a7201.bindTooltip(
+                `<div>
+                     San Francisco
+                 </div>`,
+                {"sticky": true}
+            );
+        
+    
+            var circle_marker_2da35e800e878a97e35958177dd50749 = L.circleMarker(
+                [34.05, -118.24],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "blue", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_74d4c647a4d731d30a91acb3cf80d07e);
+        
+    
+        var popup_502972474e01d0f4aeccd811d3782749 = L.popup({"maxWidth": 200});
+
+        
+            
+                var html_cbf38ccd9f72730fef43a8d0ec3c37f1 = $(`<div id="html_cbf38ccd9f72730fef43a8d0ec3c37f1" style="width: 100.0%; height: 100.0%;"><b>Los Angeles</b></div>`)[0];
+                popup_502972474e01d0f4aeccd811d3782749.setContent(html_cbf38ccd9f72730fef43a8d0ec3c37f1);
+            
+        
+
+        circle_marker_2da35e800e878a97e35958177dd50749.bindPopup(popup_502972474e01d0f4aeccd811d3782749)
+        ;
+
+        
+    
+    
+            circle_marker_2da35e800e878a97e35958177dd50749.bindTooltip(
+                `<div>
+                     Los Angeles
+                 </div>`,
+                {"sticky": true}
+            );
+        
+    
+            var circle_marker_6e2e2028f5ed7494ba370f82e2ddfd3e = L.circleMarker(
+                [36.17, -115.14],
+                {"bubblingMouseEvents": true, "color": "black", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "blue", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_74d4c647a4d731d30a91acb3cf80d07e);
+        
+    
+        var popup_89c40f6ccdbeb0ceb371e3397dfd0265 = L.popup({"maxWidth": 200});
+
+        
+            
+                var html_01de6f671f27c4ddd254c9309005e4cd = $(`<div id="html_01de6f671f27c4ddd254c9309005e4cd" style="width: 100.0%; height: 100.0%;"><b>Las Vegas</b></div>`)[0];
+                popup_89c40f6ccdbeb0ceb371e3397dfd0265.setContent(html_01de6f671f27c4ddd254c9309005e4cd);
+            
+        
+
+        circle_marker_6e2e2028f5ed7494ba370f82e2ddfd3e.bindPopup(popup_89c40f6ccdbeb0ceb371e3397dfd0265)
+        ;
+
+        
+    
+    
+            circle_marker_6e2e2028f5ed7494ba370f82e2ddfd3e.bindTooltip(
+                `<div>
+                     Las Vegas
+                 </div>`,
+                {"sticky": true}
+            );
+        
+    
+            var poly_line_4a7fd9cb6707cfd41cb0ad0068e0bef7 = L.polyline(
+                [[37.77, -122.41], [34.05, -118.24]],
+                {"bubblingMouseEvents": true, "color": "#0d0887", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#0d0887", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 5.333333333333333}
+            ).addTo(map_74d4c647a4d731d30a91acb3cf80d07e);
+        
+    
+        var popup_d598301c404dd64f768262e13093481e = L.popup({"maxWidth": 250});
+
+        
+            
+                var html_9d882ba1e365692aec724cf3dd9e20e3 = $(`<div id="html_9d882ba1e365692aec724cf3dd9e20e3" style="width: 100.0%; height: 100.0%;"><b>Route:</b> San Francisco → Los Angeles<br><b>Cost:</b> 100</div>`)[0];
+                popup_d598301c404dd64f768262e13093481e.setContent(html_9d882ba1e365692aec724cf3dd9e20e3);
+            
+        
+
+        poly_line_4a7fd9cb6707cfd41cb0ad0068e0bef7.bindPopup(popup_d598301c404dd64f768262e13093481e)
+        ;
+
+        
+    
+    
+            poly_line_4a7fd9cb6707cfd41cb0ad0068e0bef7.bindTooltip(
+                `<div>
+                     San Francisco → Los Angeles<br>Cost: 100
+                 </div>`,
+                {"sticky": true}
+            );
+        
+    
+            var poly_line_5e41093a25c627253e96def133463a0f = L.polyline(
+                [[37.77, -122.41], [36.17, -115.14]],
+                {"bubblingMouseEvents": true, "color": "#f0f921", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#f0f921", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 8.0}
+            ).addTo(map_74d4c647a4d731d30a91acb3cf80d07e);
+        
+    
+        var popup_94486a241bb392bddd55d7a7ac3ca136 = L.popup({"maxWidth": 250});
+
+        
+            
+                var html_4fb66c91d547a71bff3fa3fa02871e83 = $(`<div id="html_4fb66c91d547a71bff3fa3fa02871e83" style="width: 100.0%; height: 100.0%;"><b>Route:</b> San Francisco → Las Vegas<br><b>Cost:</b> 300</div>`)[0];
+                popup_94486a241bb392bddd55d7a7ac3ca136.setContent(html_4fb66c91d547a71bff3fa3fa02871e83);
+            
+        
+
+        poly_line_5e41093a25c627253e96def133463a0f.bindPopup(popup_94486a241bb392bddd55d7a7ac3ca136)
+        ;
+
+        
+    
+    
+            poly_line_5e41093a25c627253e96def133463a0f.bindTooltip(
+                `<div>
+                     San Francisco → Las Vegas<br>Cost: 300
+                 </div>`,
+                {"sticky": true}
+            );
+        
+    
+            var poly_line_03001d0d3365d26d2539c03a34e09cae = L.polyline(
+                [[34.05, -118.24], [36.17, -115.14]],
+                {"bubblingMouseEvents": true, "color": "#7e03a8", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#7e03a8", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 6.0}
+            ).addTo(map_74d4c647a4d731d30a91acb3cf80d07e);
+        
+    
+        var popup_580029ab8d6c36c9fe390dc1ac9ebcb6 = L.popup({"maxWidth": 250});
+
+        
+            
+                var html_3cccb13f3f66b64db1220565be503462 = $(`<div id="html_3cccb13f3f66b64db1220565be503462" style="width: 100.0%; height: 100.0%;"><b>Route:</b> Los Angeles → Las Vegas<br><b>Cost:</b> 150</div>`)[0];
+                popup_580029ab8d6c36c9fe390dc1ac9ebcb6.setContent(html_3cccb13f3f66b64db1220565be503462);
+            
+        
+
+        poly_line_03001d0d3365d26d2539c03a34e09cae.bindPopup(popup_580029ab8d6c36c9fe390dc1ac9ebcb6)
+        ;
+
+        
+    
+    
+            poly_line_03001d0d3365d26d2539c03a34e09cae.bindTooltip(
+                `<div>
+                     Los Angeles → Las Vegas<br>Cost: 150
+                 </div>`,
+                {"sticky": true}
+            );
+        
+</script>
+</html>
