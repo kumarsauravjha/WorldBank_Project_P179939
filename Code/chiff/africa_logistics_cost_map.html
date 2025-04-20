@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>African Logistics Cost Map</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        #map-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        svg {
+            display: block;
+            margin: 0 auto;
+            background-color: #cce5ff;
+        }
+        
+        .land {
+            fill: #1d3557;
+            stroke: #457b9d;
+            stroke-width: 0.5px;
+        }
+        
+        .route {
+            fill: none;
+            stroke-width: 2px;
+            stroke-linecap: round;
+            opacity: 0.8;
+        }
+        
+        .location {
+            cursor: pointer;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            pointer-events: none;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 4px;
+            margin-right: 8px;
+        }
+        
+        .cost-glider {
+            position: relative;
+            width: 180px;
+            height: 30px;
+            margin: 10px 0;
+            background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);
+            clip-path: polygon(0 50%, 90% 0, 100% 50%, 90% 100%);
+        }
+        
+        .glider-marker {
+            position: absolute;
+            width: 2px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .glider-text {
+            position: absolute;
+            font-size: 12px;
+            top: 35px;
+        }
+        
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            text-align: center;
+        }
+        
+        .controls {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        select, button {
+            padding: 8px 12px;
+            margin-right: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            text-align: center;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <div class="controls">
+            <select id="origin-filter">
+                <option value="all">All Origin Countries</option>
+                <!-- Origin options will be added dynamically -->
+            </select>
+            <select id="commodity-filter">
+                <option value="all">All Commodities</option>
+                <!-- Commodity options will be added dynamically -->
+            </select>
+            <select id="destination-filter">
+                <option value="all">All Destination Countries</option>
+                <!-- Destination options will be added dynamically -->
+            </select>
+            <button id="reset-zoom">Reset View</button>
+        </div>
+        <div id="map"></div>
+        <div id="loading">
+            Loading map data...<br>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <small style="font-size: 14px; color: #666; margin-top: 10px; display: block;">
+                Please wait while the data is being processed...
+            </small>
+        </div>
+    </div>
+
+    <script>
+        // Main dimensions
+        const width = 960;
+        const height = 500;
+        
+        // Create SVG
+        const svg = d3.select("#map")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("viewBox", [0, 0, width, height]);
+        
+        // Create a projection focusing on Africa
+        const projection = d3.geoMercator()
+            .scale(400)
+            .center([20, 0])  // Center on Africa
+            .translate([width / 2, height / 2]);
+        
+        // Create a path generator
+        const path = d3.geoPath()
+            .projection(projection);
+        
+        // Create zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([1, 8])
+            .on("zoom", zoomed);
+        
+        // Apply zoom behavior to SVG
+        svg.call(zoom);
+        
+        // Create a group for the map elements
+        const g = svg.append("g");
+        
+        // Create a tooltip
+        const tooltip = d3.select("body")
+            .append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+        
+        // Path to the data file
+        const dataPath = "data/africa_avg_cost_by_commodity.csv";
+
+        // Load world map data
+        d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
+            .then(function(worldData) {
+                // After loading the world map, load the cost data
+                updateProgress(20, "Loading African logistics cost data...");
+                
+                d3.csv(dataPath)
+                    .then(costData => {
+                        updateProgress(40, "Processing logistics cost data...");
+                        processData(worldData, costData);
+                    })
+                    .catch(error => {
+                        console.error("Error loading cost data:", error);
+                        d3.select("#loading").html("Error loading cost data. Please check the data path.");
+                    });
+            })
+            .catch(error => {
+                console.error("Error loading world map:", error);
+                d3.select("#loading").text("Error loading world map. Please check the console for details.");
+            });
+        
+        // Process the data once loaded
+        function processData(worldData, costData) {
+            // Update loading progress
+            updateProgress(50, "Creating country coordinates...");
+            
+            // Draw the world map
+            g.append("g")
+                .selectAll("path")
+                .data(topojson.feature(worldData, worldData.objects.countries).features)
+                .enter()
+                .append("path")
+                .attr("class", "land")
+                .attr("d", path);
+            
+            // Create a lookup for country codes to coordinates
+            const locations = createCountryCoordinates();
+            
+            // Process the cost data
+            updateProgress(60, "Processing cost data...");
+            
+            // Extract unique values for filters
+            const origins = new Set();
+            const destinations = new Set();
+            const commodities = new Set();
+            
+            costData.forEach(d => {
+                origins.add(d.origin_ISO);
+                destinations.add(d.destination_ISO);
+                commodities.add(d.IFM_HS);
+            });
+            
+            // Create routes data by aggregating costs across all commodities
+            const routesData = [];
+            
+            // Filter and prepare routes data
+            const aggregatedCosts = {};
+            
+            costData.forEach(d => {
+                const key = `${d.origin_ISO}-${d.destination_ISO}`;
+                if (!aggregatedCosts[key]) {
+                    aggregatedCosts[key] = {
+                        source: d.origin_ISO,
+                        target: d.destination_ISO,
+                        commodity: d.IFM_HS,
+                        cost: +d.avg_unit_cost_per_ton,
+                        count: 1
+                    };
+                } else {
+                    aggregatedCosts[key].cost += +d.avg_unit_cost_per_ton;
+                    aggregatedCosts[key].count += 1;
+                }
+            });
+            
+            // Calculate average costs
+            Object.values(aggregatedCosts).forEach(route => {
+                route.cost = route.cost / route.count;
+                routesData.push(route);
+            });
+            
+            // Update progress before rendering
+            updateProgress(70, "Rendering map...");
+            
+            // Use setTimeout to defer rendering and keep UI responsive
+            setTimeout(() => {
+                renderMap(routesData, locations, [...origins], [...destinations], [...commodities]);
+                
+                // Hide loading indicator when complete
+                updateProgress(100, "Complete!");
+                setTimeout(() => {
+                    d3.select("#loading").style("display", "none");
+                }, 500);
+            }, 50);
+        }
+        
+        function updateProgress(percent, message) {
+            d3.select("#progress-fill").style("width", `${percent}%`);
+            if (message) {
+                d3.select("#loading").select("br").node().nextSibling.textContent = message;
+            }
+        }
+        
+        function createCountryCoordinates() {
+            // African countries list with approximate coordinates
+            const countriesData = [
+                { code: "DZA", name: "Algeria", longitude: 3.05, latitude: 28.03 },
+                { code: "AGO", name: "Angola", longitude: 17.87, latitude: -11.2 },
+                { code: "BEN", name: "Benin", longitude: 2.32, latitude: 9.31 },
+                { code: "BWA", name: "Botswana", longitude: 24.68, latitude: -22.33 },
+                { code: "BFA", name: "Burkina Faso", longitude: -1.68, latitude: 12.24 },
+                { code: "BDI", name: "Burundi", longitude: 29.92, latitude: -3.37 },
+                { code: "CMR", name: "Cameroon", longitude: 12.35, latitude: 7.37 },
+                { code: "CPV", name: "Cape Verde", longitude: -23.52, latitude: 15.12 },
+                { code: "CAF", name: "Central African Republic", longitude: 20.94, latitude: 6.61 },
+                { code: "TCD", name: "Chad", longitude: 18.73, latitude: 15.45 },
+                { code: "COM", name: "Comoros", longitude: 43.33, latitude: -11.65 },
+                { code: "COG", name: "Congo", longitude: 15.83, latitude: -0.83 },
+                { code: "COD", name: "DR Congo", longitude: 21.76, latitude: -4.04 },
+                { code: "DJI", name: "Djibouti", longitude: 42.59, latitude: 11.83 },
+                { code: "EGY", name: "Egypt", longitude: 30.80, latitude: 26.82 },
+                { code: "GNQ", name: "Equatorial Guinea", longitude: 10.34, latitude: 1.65 },
+                { code: "ERI", name: "Eritrea", longitude: 39.78, latitude: 15.18 },
+                { code: "ETH", name: "Ethiopia", longitude: 40.49, latitude: 9.15 },
+                { code: "GAB", name: "Gabon", longitude: 11.61, latitude: -0.80 },
+                { code: "GMB", name: "Gambia", longitude: -15.31, latitude: 13.44 },
+                { code: "GHA", name: "Ghana", longitude: -1.02, latitude: 7.95 },
+                { code: "GIN", name: "Guinea", longitude: -9.69, latitude: 9.94 },
+                { code: "GNB", name: "Guinea-Bissau", longitude: -15.18, latitude: 11.80 },
+                { code: "CIV", name: "Ivory Coast", longitude: -5.55, latitude: 7.54 },
+                { code: "KEN", name: "Kenya", longitude: 37.91, latitude: 0.02 },
+                { code: "LSO", name: "Lesotho", longitude: 28.23, latitude: -29.61 },
+                { code: "LBR", name: "Liberia", longitude: -9.43, latitude: 6.43 },
+                { code: "LBY", name: "Libya", longitude: 17.23, latitude: 26.33 },
+                { code: "MDG", name: "Madagascar", longitude: 46.87, latitude: -18.77 },
+                { code: "MWI", name: "Malawi", longitude: 34.30, latitude: -13.25 },
+                { code: "MLI", name: "Mali", longitude: -3.99, latitude: 17.57 },
+                { code: "MRT", name: "Mauritania", longitude: -10.94, latitude: 21.01 },
+                { code: "MUS", name: "Mauritius", longitude: 57.55, latitude: -20.35 },
+                { code: "MYT", name: "Mayotte", longitude: 45.14, latitude: -12.83 },
+                { code: "MAR", name: "Morocco", longitude: -7.09, latitude: 31.79 },
+                { code: "MOZ", name: "Mozambique", longitude: 35.53, latitude: -18.67 },
+                { code: "NAM", name: "Namibia", longitude: 18.49, latitude: -22.96 },
+                { code: "NER", name: "Niger", longitude: 8.08, latitude: 17.61 },
+                { code: "NGA", name: "Nigeria", longitude: 8.68, latitude: 9.08 },
+                { code: "REU", name: "Reunion", longitude: 55.54, latitude: -21.12 },
+                { code: "RWA", name: "Rwanda", longitude: 29.87, latitude: -1.94 },
+                { code: "STP", name: "São Tomé and Príncipe", longitude: 6.61, latitude: 0.18 },
+                { code: "SEN", name: "Senegal", longitude: -14.47, latitude: 14.50 },
+                { code: "SYC", name: "Seychelles", longitude: 55.49, latitude: -4.68 },
+                { code: "SLE", name: "Sierra Leone", longitude: -11.78, latitude: 8.46 },
+                { code: "SOM", name: "Somalia", longitude: 46.20, latitude: 5.15 },
+                { code: "ZAF", name: "South Africa", longitude: 22.94, latitude: -30.56 },
+                { code: "SSD", name: "South Sudan", longitude: 31.31, latitude: 6.88 },
+                { code: "SDN", name: "Sudan", longitude: 30.22, latitude: 12.86 },
+                { code: "SWZ", name: "Eswatini", longitude: 31.47, latitude: -26.52 },
+                { code: "TZA", name: "Tanzania", longitude: 34.89, latitude: -6.37 },
+                { code: "TGO", name: "Togo", longitude: 0.82, latitude: 8.62 },
+                { code: "TUN", name: "Tunisia", longitude: 9.54, latitude: 33.89 },
+                { code: "UGA", name: "Uganda", longitude: 32.29, latitude: 1.37 },
+                { code: "ZMB", name: "Zambia", longitude: 27.85, latitude: -13.13 },
+                { code: "ZWE", name: "Zimbabwe", longitude: 29.87, latitude: -19.02 }
+            ];
+            
+            // Add some non-African countries (major trade partners)
+            const nonAfricanCountries = [
+                { code: "USA", name: "United States", longitude: -95.71, latitude: 37.09 },
+                { code: "CAN", name: "Canada", longitude: -106.35, latitude: 56.13 },
+                { code: "CHN", name: "China", longitude: 104.20, latitude: 35.86 },
+                { code: "IND", name: "India", longitude: 78.96, latitude: 20.59 },
+                { code: "GBR", name: "United Kingdom", longitude: -3.44, latitude: 55.38 },
+                { code: "FRA", name: "France", longitude: 2.21, latitude: 46.23 },
+                { code: "DEU", name: "Germany", longitude: 10.45, latitude: 51.17 },
+                { code: "BRA", name: "Brazil", longitude: -51.93, latitude: -14.24 },
+                { code: "RUS", name: "Russia", longitude: 105.32, latitude: 61.52 },
+                { code: "JPN", name: "Japan", longitude: 138.25, latitude: 36.20 },
+                { code: "AUS", name: "Australia", longitude: 133.78, latitude: -25.27 },
+                { code: "ARE", name: "UAE", longitude: 53.85, latitude: 23.42 },
+                { code: "SAU", name: "Saudi Arabia", longitude: 45.08, latitude: 23.89 },
+                { code: "KOR", name: "South Korea", longitude: 127.77, latitude: 35.91 },
+                { code: "MYS", name: "Malaysia", longitude: 101.98, latitude: 4.21 },
+                { code: "SGP", name: "Singapore", longitude: 103.82, latitude: 1.35 },
+                { code: "NLD", name: "Netherlands", longitude: 5.29, latitude: 52.13 },
+                { code: "BEL", name: "Belgium", longitude: 4.47, latitude: 50.50 },
+                { code: "ESP", name: "Spain", longitude: -3.75, latitude: 40.46 },
+                { code: "ITA", name: "Italy", longitude: 12.57, latitude: 41.87 }
+            ];
+            
+            const allCountries = [...countriesData, ...nonAfricanCountries];
+            
+            // Create a lookup object
+            const locations = {};
+            allCountries.forEach(country => {
+                locations[country.code] = {
+                    id: country.code,
+                    name: country.name,
+                    coordinates: [country.longitude, country.latitude]
+                };
+            });
+            
+            return locations;
+        }
+        
+        function renderMap(routesData, locations, origins, destinations, commodities) {
+            // Filter for valid routes (both source and target exist in locations)
+            const validRoutes = routesData.filter(d => 
+                locations[d.source] && locations[d.target]
+            );
+            
+            // Create color scale for costs
+            const costs = validRoutes.map(d => d.cost);
+            const minCost = Math.min(...costs);
+            const maxCost = Math.max(...costs);
+            
+            const colorScale = d3.scaleLinear()
+                .domain([minCost, (minCost + maxCost) / 2, maxCost])
+                .range(["#00ff00", "#ffff00", "#ff0000"]);
+            
+            // Draw the routes
+            const routesGroup = g.append("g");
+            
+            routesGroup.selectAll(".route")
+                .data(validRoutes)
+                .enter()
+                .append("path")
+                .attr("class", "route")
+                .attr("data-origin", d => d.source)
+                .attr("data-destination", d => d.target)
+                .attr("data-commodity", d => d.commodity)
+                .attr("d", function(d) {
+                    const source = locations[d.source];
+                    const target = locations[d.target];
+                    
+                    if (!source || !target) return null;
+                    
+                    // Calculate the arc path
+                    const sourceXY = projection(source.coordinates);
+                    const targetXY = projection(target.coordinates);
+                    
+                    // Calculate the midpoint with an offset to create an arc
+                    const dx = targetXY[0] - sourceXY[0];
+                    const dy = targetXY[1] - sourceXY[1];
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Adjust the arc height based on the distance
+                    const arcHeight = dist * 0.15;
+                    
+                    // Create an arc path
+                    return `M${sourceXY[0]},${sourceXY[1]} 
+                            Q${(sourceXY[0] + targetXY[0]) / 2},${(sourceXY[1] + targetXY[1]) / 2 - arcHeight} 
+                            ${targetXY[0]},${targetXY[1]}`;
+                })
+                .style("stroke", d => colorScale(d.cost))
+                .style("visibility", "visible")
+                .on("mouseover", function(event, d) {
+                    d3.select(this)
+                        .style("stroke-width", 4);
+                    
+                    const source = locations[d.source];
+                    const target = locations[d.target];
+                    
+                    if (source && target) {
+                        tooltip.transition()
+                            .duration(200)
+                            .style("opacity", 0.9);
+                            
+                        tooltip.html(`
+                            <strong>Route:</strong> ${source.name} to ${target.name}<br>
+                            <strong>Origin:</strong> ${d.source}<br>
+                            <strong>Destination:</strong> ${d.target}<br>
+                            <strong>Average Cost:</strong> $${d.cost.toFixed(2)} per ton
+                        `)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    }
+                })
+                .on("mouseout", function() {
+                    d3.select(this)
+                        .style("stroke-width", 2);
+                        
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+            
+            // Add location markers
+            g.selectAll("circle")
+                .data(Object.values(locations).filter(loc => origins.includes(loc.id) || destinations.includes(loc.id)))
+                .enter()
+                .append("circle")
+                .attr("class", "location")
+                .attr("data-id", d => d.id)
+                .attr("data-is-origin", d => origins.includes(d.id))
+                .attr("cx", d => projection(d.coordinates)[0])
+                .attr("cy", d => projection(d.coordinates)[1])
+                .attr("r", d => origins.includes(d.id) ? 6 : 3)
+                .style("fill", d => origins.includes(d.id) ? "#ff6b6b" : "#4dabf7")
+                .style("stroke", "white")
+                .style("stroke-width", 1.5)
+                .on("mouseover", function(event, d) {
+                    d3.select(this)
+                        .attr("r", origins.includes(d.id) ? 9 : 6);
+                        
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", 0.9);
+                        
+                    tooltip.html(`
+                        <strong>${d.name} (${d.id})</strong><br>
+                        ${origins.includes(d.id) ? "African Origin Country" : "Destination Country"}
+                    `)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function(event, d) {
+                    d3.select(this)
+                        .attr("r", origins.includes(d.id) ? 6 : 3);
+                        
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+            
+            // Create a legend
+            const legend = d3.select("#map-container")
+                .append("div")
+                .attr("class", "legend");
+            
+            // Cost legend with glider shape
+            legend.append("h4")
+                .style("margin-top", "0")
+                .style("margin-bottom", "8px")
+                .text("Logistics Cost Legend");
+            
+            const costLegend = legend.append("div");
+            
+            // Add glider shape with gradient
+            const glider = costLegend.append("div")
+                .attr("class", "cost-glider");
+            
+            // Add markers and labels
+            const costLabels = [
+                { cost: minCost, label: "Low" },
+                { cost: (minCost + maxCost) / 2, label: "Medium" },
+                { cost: maxCost, label: "High" }
+            ];
+            
+            const positions = [0, 50, 100]; // Percentage positions along the glider
+            
+            costLabels.forEach((item, i) => {
+                // Add marker line
+                glider.append("div")
+                    .attr("class", "glider-marker")
+                    .style("left", `${positions[i]}%`);
+                
+                // Add text label
+                glider.append("div")
+                    .attr("class", "glider-text")
+                    .style("left", `${positions[i]}%`)
+                    .style("transform", "translateX(-50%)")
+                    .text(`$${item.cost.toFixed(0)} (${item.label})`);
+            });
+            
+            // Country type legend
+            legend.append("h4")
+                .style("margin-top", "30px")
+                .style("margin-bottom", "8px")
+                .text("Country Types");
+                
+            const countryLegend = legend.append("div");
+            
+            const countryTypes = [
+                { type: "Origin (African)", color: "#ff6b6b" },
+                { type: "Destination", color: "#4dabf7" }
+            ];
+            
+            countryTypes.forEach(item => {
+                const legendItem = countryLegend.append("div")
+                    .attr("class", "legend-item");
+                
+                legendItem.append("div")
+                    .style("width", "12px")
+                    .style("height", "12px")
+                    .style("background-color", item.color)
+                    .style("border-radius", "50%")
+                    .style("margin-right", "8px");
+                
+                legendItem.append("span")
+                    .text(item.type);
+            });
+            
+            // Populate the filter dropdowns
+            // Origin countries (alphabetically)
+            const originSelect = d3.select("#origin-filter");
+            origins.sort().forEach(origin => {
+                const locationName = locations[origin] ? locations[origin].name : origin;
+                originSelect.append("option")
+                    .attr("value", origin)
+                    .text(`${locationName} (${origin})`);
+            });
+            
+            // Destination countries (alphabetically)
+            const destinationSelect = d3.select("#destination-filter");
+            destinations.sort().forEach(dest => {
+                const locationName = locations[dest] ? locations[dest].name : dest;
+                destinationSelect.append("option")
+                    .attr("value", dest)
+                    .text(`${locationName} (${dest})`);
+            });
+            
+            // Commodity types (alphabetically)
+            const commoditySelect = d3.select("#commodity-filter");
+            commodities.sort().forEach(commodity => {
+                commoditySelect.append("option")
+                    .attr("value", commodity)
+                    .text(commodity);
+            });
+            
+            // Function to apply filters
+            function applyFilters() {
+                const selectedOrigin = d3.select("#origin-filter").node().value;
+                const selectedCommodity = d3.select("#commodity-filter").node().value;
+                const selectedDestination = d3.select("#destination-filter").node().value;
+                
+                d3.selectAll(".route").style("visibility", d => {
+                    const originMatch = selectedOrigin === "all" || d.source === selectedOrigin;
+                    const destMatch = selectedDestination === "all" || d.target === selectedDestination;
+                    const commodityMatch = selectedCommodity === "all" || d.commodity === selectedCommodity;
+                    return originMatch && destMatch && commodityMatch ? "visible" : "hidden";
+                });
+                
+                // Highlight selected countries
+                d3.selectAll(".location").style("opacity", d => {
+                    if (selectedOrigin !== "all" && selectedDestination !== "all") {
+                        return (d.id === selectedOrigin || d.id === selectedDestination) ? 1 : 0.3;
+                    } else if (selectedOrigin !== "all") {
+                        return (d.id === selectedOrigin || (destinations.includes(d.id) && selectedDestination === "all")) ? 1 : 0.3;
+                    } else if (selectedDestination !== "all") {
+                        return (d.id === selectedDestination || (origins.includes(d.id) && selectedOrigin === "all")) ? 1 : 0.3;
+                    }
+                    return 1;
+                });
+            }
+            
+            // Set up filter event handlers
+            d3.select("#origin-filter").on("change", applyFilters);
+            d3.select("#commodity-filter").on("change", applyFilters);
+            d3.select("#destination-filter").on("change", applyFilters);
+            
+            // Reset zoom button
+            d3.select("#reset-zoom").on("click", function() {
+                svg.transition()
+                    .duration(750)
+                    .call(zoom.transform, d3.zoomIdentity);
+                
+                // Reset filters
+                d3.select("#origin-filter").node().value = "all";
+                d3.select("#commodity-filter").node().value = "all";
+                d3.select("#destination-filter").node().value = "all";
+                
+                // Apply reset filters
+                d3.selectAll(".route").style("visibility", "visible");
+                d3.selectAll(".location").style("opacity", 1);
+            });
+        }
+        
+        // Zoom function
+        function zoomed(event) {
+            g.attr("transform", event.transform);
+        }
+    </script>
+</body>
+</html> 
