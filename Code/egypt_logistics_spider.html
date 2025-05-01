@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Egypt Logistics Hub Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-radar"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 5px;
+            text-align: center;
+            font-weight: normal;
+            margin-bottom: 30px;
+        }
+        .chart-container {
+            position: relative;
+            height: 70vh;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        .regional-comparison {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            margin-top: 30px;
+        }
+        .region-card {
+            flex: 1 1 300px;
+            margin: 10px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .region-card h3 {
+            color: #444;
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .metric-name {
+            color: #666;
+        }
+        .metric-value {
+            font-weight: bold;
+            color: #333;
+        }
+        .metric-value.better {
+            color: #2e7d32;
+        }
+        .metric-value.worse {
+            color: #c62828;
+        }
+        .insights {
+            margin-top: 30px;
+            border-top: 1px solid #eaeaea;
+            padding-top: 20px;
+        }
+        .insights h3 {
+            color: #444;
+            margin-bottom: 15px;
+        }
+        .insights ul {
+            padding-left: 20px;
+        }
+        .insights li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .highlight {
+            background-color: #fffae6;
+            padding: 15px;
+            border-left: 4px solid #ffd700;
+            margin-bottom: 20px;
+        }
+        .footnote {
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>The Egypt Efficiency Model</h1>
+        <h2>Comparing Egypt's Logistics Metrics to Regional Averages</h2>
+        
+        <div class="highlight">
+            <strong>Central Message:</strong> "Regional hub development can dramatically reduce transport costs across multiple corridors."
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="spiderChart"></canvas>
+        </div>
+        
+        <div class="regional-comparison">
+            <div class="region-card">
+                <h3>Egypt as Export Gateway</h3>
+                <div class="metric">
+                    <span class="metric-name">Europe Gateway Cost</span>
+                    <span class="metric-value better">-32% vs. Regional Avg</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">Asia Gateway Cost</span>
+                    <span class="metric-value better">-28% vs. Regional Avg</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">North America Gateway Cost</span>
+                    <span class="metric-value better">-15% vs. Regional Avg</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">Middle East Gateway Cost</span>
+                    <span class="metric-value better">-37% vs. Regional Avg</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">Oceania Gateway Cost</span>
+                    <span class="metric-value better">-22% vs. Regional Avg</span>
+                </div>
+            </div>
+            
+            <div class="region-card">
+                <h3>Cape Verde Advantage</h3>
+                <div class="metric">
+                    <span class="metric-name">North America Gateway Cost</span>
+                    <span class="metric-value better">-27% vs. Regional Avg</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">Europe Gateway Cost</span>
+                    <span class="metric-value">-5% vs. Regional Avg</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">South America Gateway Cost</span>
+                    <span class="metric-value better">-18% vs. Regional Avg</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">Atlantic Route Utilization</span>
+                    <span class="metric-value worse">Only 28% of potential</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="insights">
+            <h3>Key Insights:</h3>
+            <ul>
+                <li><strong>Egypt emerges as Africa's most efficient export gateway to five of six global regions</strong>, demonstrating that regional hub development can significantly reduce transport costs.</li>
+                <li><strong>Egypt's extraordinary cross-regional advantage suggests transferable best practices</strong> that could be implemented in other African regions.</li>
+                <li><strong>Cape Verde shows Atlantic advantage for North American trade</strong> that remains underutilized, representing a significant opportunity for West Africa.</li>
+                <li><strong>Strategic port development in other regions</strong> could create similar efficiencies, reducing logistics costs across the continent.</li>
+            </ul>
+        </div>
+        
+        <p class="footnote">
+            Data source: World Bank Logistics Analysis 2023. 
+            Visualization compares key logistics metrics between Egypt, Cape Verde, and regional averages.
+        </p>
+    </div>
+
+    <script>
+        // Data for the spider chart
+        const data = {
+            labels: [
+                'Europe Gateway Cost Efficiency',
+                'Asia Gateway Cost Efficiency',
+                'Port Infrastructure Quality',
+                'North America Gateway Efficiency',
+                'Shipment Processing Time',
+                'Middle East Gateway Efficiency',
+                'Logistics Connectivity Index',
+                'South America Gateway Efficiency',
+                'Regulatory Efficiency'
+            ],
+            datasets: [
+                {
+                    label: 'Egypt',
+                    data: [85, 82, 72, 75, 68, 88, 79, 70, 65],
+                    backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                    borderColor: 'rgba(0, 123, 255, 1)',
+                    pointBackgroundColor: 'rgba(0, 123, 255, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(0, 123, 255, 1)'
+                },
+                {
+                    label: 'North African Average',
+                    data: [53, 54, 55, 60, 46, 51, 60, 48, 45],
+                    backgroundColor: 'rgba(255, 152, 0, 0.2)',
+                    borderColor: 'rgba(255, 152, 0, 1)',
+                    pointBackgroundColor: 'rgba(255, 152, 0, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(255, 152, 0, 1)'
+                },
+                {
+                    label: 'Cape Verde',
+                    data: [58, 50, 63, 87, 61, 45, 65, 68, 62],
+                    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                    borderColor: 'rgba(76, 175, 80, 1)',
+                    pointBackgroundColor: 'rgba(76, 175, 80, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(76, 175, 80, 1)'
+                }
+            ]
+        };
+
+        // Chart configuration options
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    angleLines: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.1)',
+                    },
+                    suggestedMin: 0,
+                    suggestedMax: 100,
+                    ticks: {
+                        stepSize: 20,
+                        showLabelBackdrop: false,
+                        font: {
+                            size: 10
+                        }
+                    },
+                    pointLabels: {
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        padding: 20,
+                        boxWidth: 15,
+                        font: {
+                            size: 14
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.raw}/100`;
+                        }
+                    }
+                }
+            }
+        };
+
+        // Create the chart when the page loads
+        window.onload = function() {
+            const ctx = document.getElementById('spiderChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'radar',
+                data: data,
+                options: options
+            });
+        };
+    </script>
+</body>
+</html> 

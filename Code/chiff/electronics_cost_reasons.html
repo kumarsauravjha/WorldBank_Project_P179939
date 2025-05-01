@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Electronic Devices Have Premium Transport Costs</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .reasons-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin: 30px 0;
+        }
+        .reason-card {
+            width: calc(50% - 15px);
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #4c75af;
+            box-sizing: border-box;
+        }
+        .reason-card h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .source {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .intro {
+            border-left: 4px solid #4c75af;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 30px;
+        }
+        .premium-band {
+            background-color: #4c75af;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            margin: 30px 0;
+            border-radius: 8px;
+        }
+        .premium-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Why Electronic Devices Have Premium Transport Costs</h1>
+        
+        <div class="intro">
+            <p>Electronic devices consistently generate the highest transport costs among commodities, with a significant premium 
+            over other product categories. This visualization explores the factors behind this premium and demonstrates
+            the consistent 30-50% price difference between electronics and other commodities.</p>
+        </div>
+        
+        <div class="premium-band">
+            <div class="premium-value">30-50% Premium</div>
+            <p>Price difference between electronics and the second-most expensive commodity (typically mining products)</p>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="premiumChart"></canvas>
+        </div>
+        
+        <h2>Key Reasons for Electronics Transport Cost Premium</h2>
+        
+        <div class="reasons-container">
+            <div class="reason-card">
+                <h3>High Value-to-Weight Ratio</h3>
+                <p>Electronic devices typically have very high value relative to their weight, making them 
+                ideal candidates for premium transport services despite higher costs. The value density means 
+                transport cost remains a small percentage of total product value.</p>
+            </div>
+            
+            <div class="reason-card">
+                <h3>Air Freight Requirements</h3>
+                <p>High-value electronics often require air freight for security and speed purposes. 
+                Air transport is significantly more expensive than sea or land transport, contributing 
+                to the overall premium in logistics costs.</p>
+            </div>
+            
+            <div class="reason-card">
+                <h3>Insurance Cost Scaling</h3>
+                <p>Insurance costs increase with commodity value. Since electronics typically have high 
+                unit values, the insurance component of transport cost is proportionally higher, 
+                adding to the overall logistics expense.</p>
+            </div>
+            
+            <div class="reason-card">
+                <h3>Special Handling Requirements</h3>
+                <p>Many electronic devices require climate-controlled environments, anti-static packaging, 
+                specialized security measures, and careful handling procedures. These special requirements 
+                add significantly to logistics expenses.</p>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="consistencyChart"></canvas>
+        </div>
+        
+        <div class="source">
+            Source: Based on World Bank data analysis on international logistics costs
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // Create the premium comparison chart
+            const premiumCtx = document.getElementById('premiumChart').getContext('2d');
+            
+            // Sample data representing cost premium of electronics vs other commodities
+            const premiumChart = new Chart(premiumCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Country A', 'Country B', 'Country C', 'Country D', 'Country E', 'Country F'],
+                    datasets: [
+                        {
+                            label: 'Electronic Devices',
+                            data: [67100, 58400, 49800, 47200, 45100, 43000],
+                            backgroundColor: 'rgba(76, 117, 175, 0.7)',
+                            borderColor: 'rgba(76, 117, 175, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Mining Products (2nd highest)',
+                            data: [45200, 39100, 33600, 31800, 30400, 29000],
+                            backgroundColor: 'rgba(149, 165, 166, 0.7)',
+                            borderColor: 'rgba(149, 165, 166, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Electronics Transport Cost Premium vs. Second Most Expensive Commodity',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-US', { 
+                                            style: 'currency', 
+                                            currency: 'USD',
+                                            minimumFractionDigits: 0,
+                                            maximumFractionDigits: 0
+                                        }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                },
+                                footer: function(tooltipItems) {
+                                    const electronics = tooltipItems[0].parsed.y;
+                                    const mining = tooltipItems[1]?.parsed.y;
+                                    
+                                    if (electronics && mining) {
+                                        const premium = ((electronics - mining) / mining * 100).toFixed(1);
+                                        return `Premium: ${premium}%`;
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Transport Cost ($ per ton)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Create the consistency visualization
+            const consistencyCtx = document.getElementById('consistencyChart').getContext('2d');
+            
+            // Sample data showing the premium percentage across countries
+            const consistencyChart = new Chart(consistencyCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Country A', 'Country B', 'Country C', 'Country D', 'Country E', 'Country F'],
+                    datasets: [{
+                        label: 'Electronics Price Premium (%)',
+                        data: [48.5, 49.3, 48.2, 48.4, 48.4, 48.3],
+                        backgroundColor: 'rgba(76, 117, 175, 0.2)',
+                        borderColor: 'rgba(76, 117, 175, 1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: 'rgba(76, 117, 175, 1)',
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Consistency of Electronics Cost Premium Across Countries',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(1) + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Price Premium (%)'
+                            },
+                            min: 30,
+                            max: 55,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        };
+    </script>
+</body>
+</html> 

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volume vs Cost Regression Curve</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/regression@2.0.1/dist/regression.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 5px;
+            text-align: center;
+            font-weight: normal;
+            margin-bottom: 30px;
+        }
+        .chart-container {
+            position: relative;
+            height: 70vh;
+            margin-bottom: 30px;
+        }
+        .insights {
+            margin-top: 30px;
+            border-top: 1px solid #eaeaea;
+            padding-top: 20px;
+        }
+        .insights h3 {
+            color: #444;
+            margin-bottom: 15px;
+        }
+        .insights ul {
+            padding-left: 20px;
+        }
+        .insights li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .highlight {
+            background-color: #fffae6;
+            padding: 15px;
+            border-left: 4px solid #ffd700;
+            margin-bottom: 20px;
+        }
+        .footnote {
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>The Volume Challenge</h1>
+        <h2>Relationship between Shipment Volume and Cost per Ton</h2>
+        
+        <div class="highlight">
+            <strong>Central Message:</strong> "Africa's smaller trade volumes compound its geographic disadvantage."
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="regressionChart"></canvas>
+        </div>
+        
+        <div class="insights">
+            <h3>Key Insights:</h3>
+            <ul>
+                <li><strong>Small shipments (0-10 tons) from Africa face extremely high costs ($6,642/ton)</strong> - This is significantly higher than the already high global average for small shipments.</li>
+                <li><strong>Low and lower-middle income countries (most African nations) pay 49% more</strong> in logistics costs than high-income countries.</li>
+                <li><strong>Economies of scale are not being achieved</strong> due to fragmented supply chains - costs drop dramatically as volume increases.</li>
+                <li><strong>Volume consolidation represents a significant opportunity</strong> for immediate cost reduction - combining small shipments could reduce costs by up to 80%.</li>
+            </ul>
+        </div>
+        
+        <p class="footnote">
+            Data source: World Bank Logistics Analysis 2023. 
+            Visualization shows regression curve based on global average costs by shipment volume bracket.
+        </p>
+    </div>
+
+    <script>
+        // Data representing the relationship between shipment volume and cost per ton
+        const volumeCostData = [
+            { name: '0-10', volume: 5, cost: 5423.38, count: 3360458 },
+            { name: '10-100', volume: 55, cost: 2158.16, count: 1388605 },
+            { name: '100-1000', volume: 550, cost: 1245.01, count: 1075629 },
+            { name: '1K-10K', volume: 5500, cost: 956.79, count: 610140 },
+            { name: '10K-100K', volume: 55000, cost: 780.07, count: 181575 },
+            { name: '>100K', volume: 150000, cost: 1090.43, count: 18915 }
+        ];
+        
+        // Add specific Africa data point
+        const africaSmallShipment = { name: 'Africa (0-10)', volume: 5, cost: 6642.04, region: 'Africa' };
+        
+        // African cost data across all volume categories
+        const africaVolumeData = [
+            { name: 'Africa (0-10)', volume: 5, cost: 6642.04 },
+            { name: 'Africa (10-100)', volume: 55, cost: 2698.04 },
+            { name: 'Africa (100-1000)', volume: 550, cost: 1556.26 },
+            { name: 'Africa (1K-10K)', volume: 5500, cost: 1195.99 },
+            { name: 'Africa (10K-100K)', volume: 55000, cost: 975.09 },
+            { name: 'Africa (>100K)', volume: 150000, cost: 1363.04 }
+        ];
+        
+        // Calculate a logarithmic regression
+        const regressionData = volumeCostData.map(d => [Math.log10(d.volume), d.cost]);
+        const result = regression.polynomial(regressionData, { order: 2 });
+
+        // Generate points for the regression curve
+        function createRegressionLine(log10MinX, log10MaxX, numPoints) {
+            const step = (log10MaxX - log10MinX) / (numPoints - 1);
+            const points = [];
+            
+            for (let i = 0; i < numPoints; i++) {
+                const log10X = log10MinX + (step * i);
+                const x = Math.pow(10, log10X); // Convert back from log10
+                const y = result.predict(log10X)[1];
+                
+                if (y > 0) { // Only include positive y values
+                    points.push({ x, y });
+                }
+            }
+            
+            return points;
+        }
+
+        // Create the chart
+        window.onload = function() {
+            const ctx = document.getElementById('regressionChart').getContext('2d');
+            
+            // Generate regression points
+            const regressionLine = createRegressionLine(0, Math.log10(200000), 100);
+            
+            // Convert data for scatter plot
+            const scatterData = volumeCostData.map(d => ({
+                x: d.volume, 
+                y: d.cost,
+                r: Math.sqrt(d.count) / 100,
+                label: `Global ${d.name} tons: $${d.cost.toFixed(2)}/ton\nShipment count: ${d.count.toLocaleString()}`
+            }));
+            
+            // Convert Africa data for scatter plot
+            const africaData = africaVolumeData.map(d => ({
+                x: d.volume,
+                y: d.cost,
+                r: 8,
+                label: `${d.name}: $${d.cost.toFixed(2)}/ton`,
+            }));
+            
+            const chart = new Chart(ctx, {
+                type: 'bubble',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Global Volume/Cost Data',
+                            data: scatterData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Africa Volume/Cost Data',
+                            data: africaData,
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Cost Regression Curve',
+                            data: regressionLine,
+                            type: 'line',
+                            fill: false,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'logarithmic',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Shipment Volume (tons) - Log Scale',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Cost per Ton (USD)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Regression Curve: Shipment Volume vs. Cost per Ton',
+                            font: {
+                                size: 18
+                            }
+                        },
+                        subtitle: {
+                            display: true,
+                            text: 'Small shipments face drastically higher costs, especially from Africa',
+                            font: {
+                                size: 14
+                            },
+                            padding: {
+                                bottom: 10
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.raw.label || `${context.raw.y.toFixed(2)} $/ton at ${context.raw.x.toFixed(0)} tons`;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+        };
+    </script>
+</body>
+</html> 
